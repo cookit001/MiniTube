@@ -6,18 +6,23 @@ import FarcasterGate from './components/FarcasterGate';
 export const metadata: Metadata = {
   title: 'MiniTube | The Decentralized Media Powerhouse',
   description: 'Experience lightning-fast YouTube and uncensorable Farcaster Video feeds in one hyper-optimized platform.',
-  keywords: ['MiniTube', 'Farcaster', 'Decentralized Video', 'YouTube Alternative', 'Web3 Media'],
-  authors: [{ name: 'MiniTube Protocol' }],
+  keywords: ['MiniTube', 'Farcaster', 'Decentralized Video', 'YouTube Alternative', 'Web3 Media', '9realms Studios'],
+  authors: [{ name: '9realms Studios', url: 'https://github.com/cookit001' }],
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon.png',
+  },
   openGraph: {
     title: 'MiniTube | Decentralized Media',
-    description: 'Watch YouTube and Farcaster Live streams without limits.',
+    description: 'Watch YouTube and Farcaster Live streams without limits. By 9realms Studios.',
     url: 'https://minitube.app',
     siteName: 'MiniTube',
     images: [
       {
-        url: 'https://minitube.app/og-image.png',
+        url: '/og-image.png',
         width: 1200,
         height: 630,
+        alt: 'MiniTube — The Decentralized Media Powerhouse by 9realms Studios',
       },
     ],
     locale: 'en_US',
@@ -26,7 +31,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'MiniTube | The Future of Media',
-    description: 'Decentralized, lightning fast, uncensorable.',
+    description: 'Decentralized, lightning fast, uncensorable. By 9realms Studios.',
+    images: ['/og-image.png'],
   },
   manifest: '/manifest.json',
 };

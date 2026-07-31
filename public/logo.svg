@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" fill="none">
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff2a2a"/>
+      <stop offset="100%" style="stop-color:#a15cff"/>
+    </linearGradient>
+    <linearGradient id="playGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff2a2a"/>
+      <stop offset="100%" style="stop-color:#a15cff"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <!-- Play Button Icon -->
+  <g transform="translate(10, 25)">
+    <rect x="0" y="0" width="60" height="60" rx="14" fill="url(#playGrad)" opacity="0.15"/>
+    <rect x="3" y="3" width="54" height="54" rx="12" fill="none" stroke="url(#playGrad)" stroke-width="2"/>
+    <polygon points="24,16 24,44 46,30" fill="url(#playGrad)"/>
+  </g>
+  
+  <!-- MiniTube Text - Calligraphic Style -->
+  <text x="82" y="68" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="bold" font-style="italic" fill="url(#logoGrad)" filter="url(#glow)" letter-spacing="-1">
+    MiniTube
+  </text>
+  
+  <!-- Underline Flourish -->
+  <path d="M 82 78 Q 200 88 340 72" stroke="url(#logoGrad)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+  
+  <!-- Subtitle -->
+  <text x="82" y="100" font-family="'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#666" letter-spacing="3" font-weight="300">
+    BY 9REALMS STUDIOS
+  </text>
+</svg>
