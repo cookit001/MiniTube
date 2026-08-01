@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@farcaster/frame-sdk": "^0.0.64",
-    "@vercel/kv": "^3.0.0",
+    "@upstash/redis": "^1.38.1",
     "isomorphic-dompurify": "^3.19.0",
     "next": "^16.2.12",
     "react": "^18",

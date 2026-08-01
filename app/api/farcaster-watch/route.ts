@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+const kv = Redis.fromEnv();
 import { fetchFromNativeExtractor } from '../videos/route';
 import { logAuditEvent } from '@/app/utils/security';
 
