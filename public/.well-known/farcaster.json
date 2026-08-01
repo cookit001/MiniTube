@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjMzNDA5NzgsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMjNlM0JCMEExNDE3MzJmMTFlMkUxQ2QyZDFjRTFCRjc4Yjg5NTE2In0",
+    "payload": "eyJkb21haW4iOiJtaW5pdHViZS45cmVhbG1zc3R1ZGlvcy5uYW1lLm5nIn0",
+    "signature": "wfhPMZ9tgs7t/fcGN6xhN9/WpwWvUDdtPZrcYwl+YRQoQc08gt5pA36nAoNnl4OOojwAWnXZMi8Lv5hkYgXURBs="
+  },
+  "frame": {
+    "version": "1",
+    "name": "Example Frame",
+    "iconUrl": "https://minitube.9realmsstudios.name.ng/icon.png",
+    "homeUrl": "https://minitube.9realmsstudios.name.ng",
+    "imageUrl": "https://minitube.9realmsstudios.name.ng/image.png",
+    "buttonTitle": "Check this out",
+    "splashImageUrl": "https://minitube.9realmsstudios.name.ng/splash.png",
+    "splashBackgroundColor": "#eeccff",
+    "webhookUrl": "https://minitube.9realmsstudios.name.ng/api/webhook"
+  }
+}

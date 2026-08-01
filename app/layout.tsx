@@ -33,6 +33,22 @@ export const metadata: Metadata = {
     images: ['/og-image.png'],
   },
   manifest: '/manifest.json',
+  other: {
+    'fc:frame': JSON.stringify({
+      version: 'next',
+      imageUrl: 'https://minitube.9realmsstudios.name.ng/image.png',
+      button: {
+        title: 'Check this out',
+        action: {
+          type: 'launch_frame',
+          name: 'Example Frame',
+          url: 'https://minitube.9realmsstudios.name.ng',
+          splashImageUrl: 'https://minitube.9realmsstudios.name.ng/splash.png',
+          splashBackgroundColor: '#eeccff'
+        }
+      }
+    })
+  }
 };
 
 export default function RootLayout({
