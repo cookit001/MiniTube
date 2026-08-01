@@ -55,8 +55,8 @@ contract MiniTubeSplitter {
     }
 
     /**
-     * @dev Tip ERC20 Token (USDC)
-     * @param token The ERC20 token address (e.g. Base USDC)
+     * @dev Tip ERC20 Token (USDC, DEGEN, USDT, etc.)
+     * @param token The ERC20 token address
      * @param creator The address of the content creator
      * @param amount The total amount to tip
      * @param feeAmount The pre-calculated fee amount
@@ -68,18 +68,30 @@ contract MiniTubeSplitter {
         uint256 creatorAmount = amount - feeAmount;
 
         // Transfer total amount from sender to this contract
-        // NOTE: User must approve this contract first!
-        require(token.transferFrom(msg.sender, address(this), amount), "TransferFrom failed");
+        _safeTransferFrom(token, msg.sender, address(this), amount);
 
         // Send fee to treasury
         if (feeAmount > 0) {
-            require(token.transfer(treasury, feeAmount), "Treasury transfer failed");
+            _safeTransfer(token, treasury, feeAmount);
         }
 
         // Send rest to creator
-        require(token.transfer(creator, creatorAmount), "Creator transfer failed");
+        _safeTransfer(token, creator, creatorAmount);
 
         emit TipSent(msg.sender, creator, address(token), amount, feeAmount);
+    }
+
+    // --- SafeERC20 Internal Helpers ---
+    // These ensure compatibility with non-standard tokens (like USDT) that don't return a boolean.
+
+    function _safeTransfer(IERC20 token, address to, uint256 value) internal {
+        (bool success, bytes memory data) = address(token).call(abi.encodeWithSignature("transfer(address,uint256)", to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "SafeERC20: transfer failed");
+    }
+
+    function _safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
+        (bool success, bytes memory data) = address(token).call(abi.encodeWithSignature("transferFrom(address,address,uint256)", from, to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "SafeERC20: transferFrom failed");
     }
     
     /**
