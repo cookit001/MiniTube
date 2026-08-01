@@ -1,4 +1,4 @@
-import FarcasterWatchFeed from '../components/FarcasterWatchFeed';
+import FarcasterWatchFeed from '../../components/FarcasterWatchFeed';
 
 export default function FarcasterWatchPage() {
   return (

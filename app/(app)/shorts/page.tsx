@@ -1,4 +1,4 @@
-import ShortsPlayer from '../components/ShortsPlayer';
+import ShortsPlayer from '../../components/ShortsPlayer';
 
 export default function ShortsPage() {
   return (

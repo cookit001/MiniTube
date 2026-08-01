@@ -1,4 +1,4 @@
-import YouTubeLiveFeed from '../components/YouTubeLiveFeed';
+import YouTubeLiveFeed from '../../components/YouTubeLiveFeed';
 
 export default function LivePage() {
   return (
