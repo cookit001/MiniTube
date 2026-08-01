@@ -122,7 +122,7 @@ export async function fetchFromNativeExtractor(query: string, geo: string, type:
         channelTitle: 'Web3 Daily',
         publishedAt: new Date().toISOString(),
         source: 'extractor_fallback',
-        videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4'
       }
     ];
   }

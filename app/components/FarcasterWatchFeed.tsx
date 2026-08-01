@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { parseEther, createPublicClient, http, formatEther } from 'viem';
+import { parseEther, createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
+import { trackSignal, rerankFeed } from '@/app/utils/interestEngine';
 
 // Custom Toast Component for UI Feedback
 const Toast = ({ message, type, onClose }: any) => {
@@ -34,6 +35,7 @@ const TipModal = ({ author, address, onClose, onConfirm }: any) => {
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('DEGEN');
   const [balance, setBalance] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState(true);
 
   // We fetch the balance securely via viem
   useEffect(() => {
@@ -84,9 +86,47 @@ const TipModal = ({ author, address, onClose, onConfirm }: any) => {
           onBlur={e => e.target.style.border = '2px solid rgba(255,255,255,0.05)'}
         />
         
+        {/* Fee Breakdown Transparency */}
+        {amount && !isNaN(Number(amount)) && Number(amount) > 0 && (
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '12px', fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
+            {(() => {
+              const val = Number(amount);
+              const fee = val * 0.025; // 2.5%
+              
+              // Mock $5 Caps based on currency assumptions (e.g., DEGEN=$0.02, ETH=$3000, USDC=$1)
+              let cap = 5; 
+              if (currency === 'DEGEN') cap = 250; 
+              else if (currency === 'ETH') cap = 0.00166;
+              
+              const actualFee = Math.min(fee, cap);
+              const creatorGets = val - actualFee;
+              
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Creator gets:</span>
+                    <span style={{ color: 'white', fontWeight: 'bold' }}>{creatorGets.toFixed(currency === 'ETH' ? 5 : 2)} {currency}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>MiniTube Fee (2.5%):</span>
+                    <span style={{ color: actualFee === cap ? '#a15cff' : '#aaa' }}>
+                      {actualFee.toFixed(currency === 'ETH' ? 5 : 2)} {currency} {actualFee === cap && '(Capped at $5)'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+        
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ccc', marginTop: '4px' }}>
+          <input type="checkbox" checked={announce} onChange={e => setAnnounce(e.target.checked)} style={{ accentColor: '#a15cff' }} />
+          Announce tip on Farcaster
+        </label>
+        
         <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '16px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>Cancel</button>
-          <button onClick={() => onConfirm(amount, currency)} style={{ flex: 1, padding: '14px', borderRadius: '16px', border: 'none', background: currency === 'DEGEN' ? '#a15cff' : currency === 'USDC' ? '#2775ca' : '#627eea', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>Send Tip</button>
+          <button onClick={() => onConfirm(amount, currency, announce)} style={{ flex: 1, padding: '14px', borderRadius: '16px', border: 'none', background: currency === 'DEGEN' ? '#a15cff' : currency === 'USDC' ? '#2775ca' : '#627eea', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>Send Tip</button>
         </div>
       </div>
     </div>
@@ -94,13 +134,20 @@ const TipModal = ({ author, address, onClose, onConfirm }: any) => {
 }
 
 export default function FarcasterWatchFeed() {
-  const [casts, setCasts] = useState([]);
+  const [casts, setCasts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<any>(null);
   const [tipModal, setTipModal] = useState<any>(null); // { author, address, currency }
+  const [showConnect, setShowConnect] = useState(false);
+  const [farcasterConnected, setFarcasterConnected] = useState(false);
+  const [failedCasts, setFailedCasts] = useState<Set<string>>(new Set());
   
   // Track interactions in local state
   const [follows, setFollows] = useState<Set<string>>(new Set());
+  const [likedCasts, setLikedCasts] = useState<Set<string>>(new Set());
+  const [lastTap, setLastTap] = useState(0);
+  const [heartAnim, setHeartAnim] = useState<string | null>(null);
+  const watchedProgress = useRef<Record<string, number>>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -118,8 +165,10 @@ export default function FarcasterWatchFeed() {
     fetch('/api/farcaster-watch')
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          setCasts(data.data);
+        if (data.success && data.data?.length > 0) {
+          // Re-rank feed based on user's interest profile (client-side personalisation)
+          const personalised = rerankFeed(data.data);
+          setCasts(personalised);
         }
         setLoading(false);
       })
@@ -196,7 +245,25 @@ export default function FarcasterWatchFeed() {
     }
   };
 
-  const handleConfirmTip = async (amount: string, currency: string) => {
+  const handleDoubleTap = (hash: string) => {
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      // Double tap confirmed
+      if (!farcasterConnected) {
+        setShowConnect(true);
+        return;
+      }
+      setHeartAnim(hash);
+      const newLikes = new Set(likedCasts);
+      newLikes.add(hash);
+      setLikedCasts(newLikes);
+      setTimeout(() => setHeartAnim(null), 1000); // Clear animation
+    } else {
+      setLastTap(now);
+    }
+  };
+
+  const handleConfirmTip = async (amount: string, currency: string, announce: boolean) => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setToast({ message: 'Invalid tip amount', type: 'info' });
       return;
@@ -206,16 +273,15 @@ export default function FarcasterWatchFeed() {
     setToast({ message: `Requesting secure wallet signature...`, type: 'info' });
     
     try {
-      // For USDC on Base, we would technically encode an ERC20 transfer data payload.
-      // For ETH/DEGEN (assuming Degen Chain or Base ETH), we send native value.
-      let txParams: any = { to: address };
+      const SPLITTER_CONTRACT = '0x0000000000000000000000000000MiniTubeSplitter';
+      let txParams: any = { to: SPLITTER_CONTRACT }; // Route all tips through the Splitter Contract
 
+      // Simulate the calldata routing the split
       if (currency === 'USDC') {
-        // Mock ERC20 Transfer call for standard USDC
-        txParams.data = '0xa9059cbb000000000000000000000000' + address.replace('0x', '') + '0000000000000000000000000000000000000000000000000000000000000000'; // Simplified mock
-        txParams.to = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'; // Base USDC
+        txParams.data = '0x_simulated_tipERC20_call_to_splitter_with_creator_' + address.replace('0x', '');
         txParams.value = '0x0';
       } else {
+        txParams.data = '0x_simulated_tipNative_call_to_splitter_with_creator_' + address.replace('0x', '');
         txParams.value = `0x${parseEther(amount).toString(16)}`;
       }
       
@@ -231,6 +297,11 @@ export default function FarcasterWatchFeed() {
       }
 
       setToast({ message: `Transaction broadcasted! 💸 Tipped ${amount} ${currency} to @${author}`, type: 'success' });
+      if (announce && farcasterConnected) {
+        setTimeout(() => setToast({ message: `Cast posted: Just tipped @${author} ${amount} ${currency}!`, type: 'success' }), 2000);
+      } else if (announce) {
+        setTimeout(() => setShowConnect(true), 1000);
+      }
     } catch (error: any) {
       setToast({ message: error.message || 'Transaction failed', type: 'error' });
     }
@@ -284,6 +355,26 @@ export default function FarcasterWatchFeed() {
         />
       )}
 
+      {/* Connect Farcaster Mock Modal */}
+      {showConnect && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' }}>
+          <div className="glass" style={{ background: 'rgba(20, 20, 20, 0.95)', padding: '24px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', width: '300px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', textAlign: 'center' }}>
+            <div style={{ fontSize: '40px' }}>💜</div>
+            <h3 style={{ margin: 0, color: 'white' }}>Connect Farcaster</h3>
+            <p style={{ color: '#ccc', fontSize: '14px', margin: 0, lineHeight: 1.4 }}>Sign in with Neynar to Like, Comment, and Announce Tips on Farcaster.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+              <button 
+                onClick={() => { setFarcasterConnected(true); setShowConnect(false); setToast({ message: 'Farcaster Connected!', type: 'success' }); }} 
+                style={{ padding: '14px', borderRadius: '16px', border: 'none', background: '#8a63d2', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Sign In with Neynar
+              </button>
+              <button onClick={() => setShowConnect(false)} style={{ padding: '14px', borderRadius: '16px', border: 'none', background: 'transparent', color: '#888', cursor: 'pointer', fontWeight: 'bold' }}>Maybe Later</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Support Banner for the App Creator */}
       {!follows.has('real9realms') && casts.length > 0 && (
         <div style={{ position: 'absolute', top: '16px', left: '16px', right: '16px', background: 'linear-gradient(135deg, rgba(255,42,42,0.9), rgba(161,92,255,0.9))', padding: '12px 16px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 100, boxShadow: '0 4px 20px rgba(255,42,42,0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
@@ -314,8 +405,18 @@ export default function FarcasterWatchFeed() {
         </div>
       ) : casts.map((cast: any, index: number) => {
         const isFollowed = follows.has(cast.author);
+        const isFailed = failedCasts.has(cast.hash);
 
-        return (
+        // Verified tick badge
+        const VerifiedBadge = () => {
+          if (cast.verifiedTier === 'creator') return <span title="MiniTube Creator" style={{ fontSize: '13px', background: 'linear-gradient(135deg, #ff2a2a, #a15cff)', padding: '2px 6px', borderRadius: '8px', fontWeight: 800, letterSpacing: '0.5px', color: 'white' }}>🔴 Creator</span>;
+          if (cast.verifiedTier === 'power') return <span title="Neynar Power Badge" style={{ color: '#ffd700', fontSize: '14px', fontWeight: 'bold', textShadow: '0 0 6px rgba(255,215,0,0.8)' }}>✦</span>;
+          if (cast.verifiedTier === 'whale') return <span title="Whale Account" style={{ color: '#a8d8ff', fontSize: '13px', fontWeight: 'bold' }}>✓</span>;
+          return null;
+        };
+
+        const cards = [
+          // Main video card
           <article 
             key={cast.hash} 
             style={{ 
@@ -323,30 +424,76 @@ export default function FarcasterWatchFeed() {
               width: '100%', 
               scrollSnapAlign: 'start', 
               position: 'relative', 
-              backgroundColor: '#000' 
+              backgroundColor: '#000',
+              flexShrink: 0
             }}
           >
-            <video 
-              ref={(el) => { videoRefs.current[index] = el; }}
-              src={cast.videoUrl} 
-              loop 
-              playsInline
-              controls={false}
-              onClick={(e) => {
-                const v = e.currentTarget;
-                if (v.paused) v.play(); else v.pause();
-              }}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer' }}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                if (e.currentTarget.parentElement) {
-                  e.currentTarget.parentElement.innerHTML += '<div style="color: rgba(255,255,255,0.5); height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">Media Unavailable</div>';
-                }
-              }}
-            />
+            {/* Video element — hidden if failed, shown if ok */}
+            {!isFailed && (
+              <video 
+                ref={(el) => { videoRefs.current[index] = el; }}
+                src={cast.videoUrl} 
+                loop 
+                playsInline
+                controls={false}
+                onClick={(e) => {
+                  const v = e.currentTarget;
+                  if (v.paused) v.play(); else v.pause();
+                  handleDoubleTap(cast.hash);
+                }}
+                onTimeUpdate={(e) => {
+                  const v = e.currentTarget;
+                  if (!v.duration) return;
+                  const pct = (v.currentTime / v.duration) * 100;
+                  const prev = watchedProgress.current[cast.hash] || 0;
+                  if (pct >= 75 && prev < 75) trackSignal(cast.hash, cast.text, 'watch_75');
+                  else if (pct >= 50 && prev < 50) trackSignal(cast.hash, cast.text, 'watch_50');
+                  else if (pct >= 25 && prev < 25) trackSignal(cast.hash, cast.text, 'watch_25');
+                  watchedProgress.current[cast.hash] = pct;
+                }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer' }}
+                onError={() => {
+                  // React state-based: no innerHTML mutation
+                  setFailedCasts(prev => new Set(prev).add(cast.hash));
+                  trackSignal(cast.hash, cast.text, 'skipped');
+                }}
+              />
+            )}
+
+            {/* Media Unavailable Fallback Card */}
+            {isFailed && (
+              <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%)', color: 'white' }}>
+                <div style={{ fontSize: '48px', filter: 'grayscale(0.5)' }}>📡</div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: '#ccc' }}>Video Unavailable on Farcaster</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#555' }}>The creator may have deleted this cast.</p>
+                </div>
+                <button 
+                  onClick={() => handleNativeOpen(cast.hash, cast.author)}
+                  style={{ padding: '10px 20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: '#aaa', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                >
+                  View on Warpcast →
+                </button>
+              </div>
+            )}
             
             {/* Cinematic Gradient at bottom for text readability */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)', pointerEvents: 'none' }}></div>
+            {!isFailed && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)', pointerEvents: 'none' }}></div>}
+            
+            {/* Double Tap Heart Animation */}
+            {heartAnim === cast.hash && (
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 50, animation: 'heart-burst 1s forwards' }}>
+                <span style={{ fontSize: '100px', filter: 'drop-shadow(0 10px 20px rgba(255,42,42,0.5))' }}>❤️</span>
+                <style>{`
+                  @keyframes heart-burst {
+                    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+                    20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+                    30% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                    100% { transform: translate(-50%, -100%) scale(1.5); opacity: 0; }
+                  }
+                `}</style>
+              </div>
+            )}
             
             {/* Right Action Bar */}
             <div style={{ position: 'absolute', bottom: '110px', right: '12px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', zIndex: 10 }}>
@@ -366,21 +513,28 @@ export default function FarcasterWatchFeed() {
                 )}
               </div>
 
-              {/* Real Native Like */}
+              {/* Like Button */}
               <button 
-                onClick={() => handleNativeOpen(cast.hash, cast.author)}
+                onClick={() => {
+                  if (!farcasterConnected) { setShowConnect(true); return; }
+                  const newLikes = new Set(likedCasts); newLikes.add(cast.hash);
+                  setLikedCasts(newLikes);
+                  trackSignal(cast.hash, cast.text, 'liked');
+                }}
                 style={{ background: 'transparent', border: 'none', padding: 0, color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
                 onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
               >
                 <div style={{ width: '45px', height: '45px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  ♡
+                  {likedCasts.has(cast.hash) ? '❤️' : '♡'}
                 </div>
-                <span style={{ fontSize: '12px', color: 'white', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{cast.likes}</span>
+                <span style={{ fontSize: '12px', color: likedCasts.has(cast.hash) ? '#ff2a2a' : 'white', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                  {likedCasts.has(cast.hash) ? cast.likes + 1 : cast.likes}
+                </span>
               </button>
 
-              {/* Real Native Comment */}
+              {/* Comment */}
               <button 
                 onClick={() => handleNativeOpen(cast.hash, cast.author)}
                 style={{ background: 'transparent', border: 'none', padding: 0, color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', transition: 'transform 0.2s' }}
@@ -394,9 +548,9 @@ export default function FarcasterWatchFeed() {
                 <span style={{ fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{cast.recasts}</span>
               </button>
 
-              {/* Share/Cast Button */}
+              {/* Share */}
               <button 
-                onClick={() => handleShare(cast.hash)}
+                onClick={() => { handleShare(cast.hash); trackSignal(cast.hash, cast.text, 'shared'); }}
                 style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
                 onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -408,9 +562,9 @@ export default function FarcasterWatchFeed() {
                 <span style={{ color: 'white', fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>Share</span>
               </button>
 
-              {/* Unified Tip Button */}
+              {/* Tip Button */}
               <button 
-                onClick={() => setTipModal({ author: cast.author, address: cast.address })}
+                onClick={() => { setTipModal({ author: cast.author, address: cast.address }); trackSignal(cast.hash, cast.text, 'tipped'); }}
                 style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
                 onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -425,13 +579,14 @@ export default function FarcasterWatchFeed() {
 
             {/* Bottom Info Bar */}
             <div style={{ position: 'absolute', bottom: '24px', left: '16px', right: '80px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h3 style={{ margin: 0, color: 'white', fontSize: '1.25rem', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>@{cast.author}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>@{cast.author}</h3>
+                <VerifiedBadge />
                 {cast.author !== 'real9realms' && !isFollowed && (
-                  <span style={{ color: '#aaa', fontSize: '0.9rem', cursor: 'pointer', fontWeight: 600 }} onClick={() => handleAction('follow', { author: cast.author })}>• Follow</span>
+                  <span style={{ color: '#aaa', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }} onClick={() => handleAction('follow', { author: cast.author })}>• Follow</span>
                 )}
               </div>
-              <p style={{ margin: 0, color: 'rgba(255,255,255,0.95)', fontSize: '0.95rem', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.95)', fontSize: '0.9rem', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                 {cast.text}
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', marginTop: '6px', fontWeight: 500 }}>
@@ -439,7 +594,7 @@ export default function FarcasterWatchFeed() {
               </div>
             </div>
             
-            {/* Next Video Button Overlay */}
+            {/* Next Video Button */}
             {index < casts.length - 1 && (
               <button 
                 onClick={() => scrollToNext(index)}
@@ -448,9 +603,45 @@ export default function FarcasterWatchFeed() {
                 ↓
               </button>
             )}
-
           </article>
-        );
+        ];
+
+        // Creator Card: only shown while user hasn't followed @real9realms
+        // Once the Follow button is clicked, follows.has('real9realms') becomes true
+        // and this card disappears from the feed automatically.
+        if (index === 0 && !follows.has('real9realms')) {
+          cards.push(
+            <article key="creator-card" style={{ height: '100%', width: '100%', scrollSnapAlign: 'start', position: 'relative', backgroundColor: '#000', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'linear-gradient(135deg, rgba(20,20,20,0.98), rgba(10,0,20,0.98))', border: '1px solid rgba(161,92,255,0.4)', borderRadius: '24px', padding: '32px 24px', textAlign: 'center', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 0 60px rgba(161,92,255,0.2)' }}>
+                <div style={{ fontSize: '52px' }}>📺</div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#a15cff', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>Built by 9realms Studios</p>
+                  <h2 style={{ margin: '8px 0 0', color: 'white', fontSize: '1.4rem', fontWeight: 900 }}>@real9realms</h2>
+                  <p style={{ margin: '8px 0 0', color: '#aaa', fontSize: '0.9rem', lineHeight: 1.5 }}>Creator of MiniTube — the decentralized video platform on Farcaster.</p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* Primary CTA: Follow — clicking this hides the card permanently (until unfollow) */}
+                  <button
+                    onClick={() => handleAction('follow', { author: 'real9realms' })}
+                    style={{ padding: '14px', borderRadius: '16px', border: 'none', background: 'linear-gradient(135deg, #a15cff, #627eea)', color: 'white', cursor: 'pointer', fontWeight: 800, fontSize: '1rem', boxShadow: '0 4px 20px rgba(161,92,255,0.4)' }}
+                  >
+                    👥 Follow on Farcaster
+                  </button>
+                  {/* Optional secondary CTA: Tip — clearly voluntary */}
+                  <button
+                    onClick={() => setTipModal({ author: 'real9realms', address: '0x0000000000000000000000000000000000000001' })}
+                    style={{ padding: '11px', borderRadius: '16px', border: '1px solid rgba(161,92,255,0.3)', background: 'transparent', color: '#a15cff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                  >
+                    💸 Optional: Tip the Creator
+                  </button>
+                </div>
+                <p style={{ margin: 0, fontSize: '11px', color: '#555' }}>Scroll down for more videos ↓</p>
+              </div>
+            </article>
+          );
+        }
+
+        return cards;
       })}
       </div>
     </div>

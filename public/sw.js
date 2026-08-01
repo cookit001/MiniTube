@@ -24,6 +24,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // Bypass cross-origin or video requests to avoid range-header stream failures
+  if (e.request.destination === 'video' || e.request.destination === 'audio' || e.request.url.includes('.mp4') || e.request.url.includes('.m3u8')) {
+    return;
+  }
+
   // Cache-First for static assets (CSS, JS, Images)
   e.respondWith(
     caches.match(e.request).then((response) => response || fetch(e.request))

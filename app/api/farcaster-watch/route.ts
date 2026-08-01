@@ -64,7 +64,7 @@ async function fetchFarcasterVideos() {
     // and fetch multiple pages to ensure a massive raw data pool for our curation engine.
     let allCasts: any[] = [];
     let cursor = '';
-    const MAX_PAGES = 15; // Fetch up to 15 pages for true endless scrolling
+    const MAX_PAGES = 10; // Balance between huge feed and serverless timeouts
 
     for (let i = 0; i < MAX_PAGES; i++) {
       const url = `https://api.neynar.com/v2/farcaster/feed?feed_type=filter&filter_type=embed_types&embed_types=video&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
@@ -118,7 +118,16 @@ async function fetchFarcasterVideos() {
         likes: c.reactions?.likes_count || 0,
         recasts: c.reactions?.recasts_count || 0,
         replies: c.replies?.count || 0,
-        followerCount: c.author?.follower_count || 500
+        followerCount: c.author?.follower_count || 500,
+        powerBadge: c.author?.power_badge || false,
+        // Compute verified tier server-side for determinism
+        verifiedTier: (() => {
+          const username = c.author?.username || '';
+          if (username === 'real9realms') return 'creator';
+          if (c.author?.power_badge) return 'power';
+          if ((c.author?.follower_count || 0) >= 10000) return 'whale';
+          return null;
+        })()
       };
     }).filter((c: any) => {
       if (!c.videoUrl) return false;
@@ -150,7 +159,7 @@ export async function GET() {
     let curatedCasts: any[] | null = null;
     try {
       if (process.env.KV_REST_API_URL) {
-        curatedCasts = await kv.get<any[]>('farcaster_watch_feed_v3');
+        curatedCasts = await kv.get<any[]>('farcaster_watch_feed_v5');
       }
     } catch (e) {
       console.warn('Redis KV Cache miss or error:', e);
@@ -192,7 +201,7 @@ export async function GET() {
       try {
         if (process.env.KV_REST_API_URL) {
           // Cache feed for 1 hour to prevent API exhaustion while building traffic
-          await kv.set('farcaster_watch_feed_v3', curatedCasts, { ex: 3600 });
+          await kv.set('farcaster_watch_feed_v5', curatedCasts, { ex: 300 });
         }
       } catch (e) {
         console.warn('Failed to set Redis KV Cache:', e);
