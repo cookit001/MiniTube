@@ -4,7 +4,7 @@ MiniTube's goal is to become the definitive decentralized vertical video platfor
 
 ## Phase 1: MVP & Foundation (Current)
 - [x] Integrate Neynar API to fetch chronological video casts.
-- [x] Build infinite scroll TikTok-style UI (Mobile & Desktop).
+- [x] Build infinite scroll short-form video UI (Mobile & Desktop).
 - [x] Integrate Farcaster Frame v2 SDK for Auto-Authentication.
 - [x] Enable 100% Non-Custodial Web3 Tipping via `viem`.
 - [x] Native Profile Follow Deep Links.

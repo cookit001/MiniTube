@@ -27,7 +27,7 @@ async function fetchFromOfficialYouTubeAPI(query: string, type: string): Promise
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) throw new Error('MISSING_API_KEY');
 
-  let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`;
+  let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`;
   
   if (type === 'shorts') {
     url += '&videoDuration=short';

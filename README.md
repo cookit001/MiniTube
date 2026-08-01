@@ -2,19 +2,18 @@
 
 > **Built by 9realms Studios** | Licensed under BSL 1.1 (becomes open source August 2029)
 
-MiniTube is a TikTok-style short-form video platform built entirely on the Farcaster protocol. It pulls real decentralized video casts from the Farcaster network (via Neynar), curates them with a proprietary AI-ranking algorithm, and serves them in an infinitely-scrolling, snap-scroll feed — all as a Farcaster MiniApp (Frame v2).
+MiniTube is a short-form video platform built entirely on the Farcaster protocol. It pulls real decentralized video casts from the Farcaster network (via Neynar), curates them with a proprietary AI-ranking algorithm, and serves them in an infinitely-scrolling, snap-scroll feed — all as a Farcaster MiniApp (Frame v2).
+<br/>
 
----
-
-## ✨ Features
+## 🎯 Production Core Features
 
 | Feature | Status |
-|---|---|
-| 📡 Live Farcaster Video Feed | ✅ Production |
-| 🧠 AI Curation Engine (Engagement Velocity + Discovery Boost) | ✅ Production |
-| 🎯 Personalized Interest-Based Feed (localStorage, zero backend) | ✅ Production |
-| ✦ Verified Ticks (Creator / Neynar Power Badge / Whale) | ✅ Production |
-| 💜 Double-Tap to Like (TikTok-style animation) | ✅ Production |
+| :--- | :--- |
+| 🎬 Infinite Snap-Scroll Video Feed | ✅ Production |
+| 🧠 AI Interest Engine Curation | ✅ Production |
+| 💎 Smart Contract Native Tipping (0x Splitter) | ✅ Production |
+| 👑 Creator Verification Ticks (🔴 ✦ ✓) | ✅ Production |
+| 💜 Double-Tap to Like (Native fluid animation) | ✅ Production |
 | 💸 Tip Creators (DEGEN / USDC / ETH with 2.5% Protocol Fee) | ✅ Production |
 | 📣 Announce Tips on Farcaster | ✅ Production |
 | 🔗 Native Share via Farcaster SDK | ✅ Production |
