@@ -4,41 +4,58 @@ pragma solidity ^0.8.20;
 /**
  * @title MiniTubeSplitter
  * @dev Splits tips between the content creator and the MiniTube Treasury.
- * Enforces a 2.5% protocol fee with a strict $5 equivalent cap.
- * Designed for Base and Degen Chain.
+ * Enforces a strict mathematical 2.5% protocol fee on-chain.
+ * Secure against reentrancy, fee-on-transfer tokens, and non-standard ERC20s.
  */
 
-// Minimal ERC20 interface for USDC transfers
 interface IERC20 {
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
 }
 
-contract MiniTubeSplitter {
+// Simple Reentrancy Guard
+abstract contract ReentrancyGuard {
+    uint256 private constant NOT_ENTERED = 1;
+    uint256 private constant ENTERED = 2;
+    uint256 private _status;
+
+    constructor() {
+        _status = NOT_ENTERED;
+    }
+
+    modifier nonReentrant() {
+        require(_status != ENTERED, "ReentrancyGuard: reentrant call");
+        _status = ENTERED;
+        _;
+        _status = NOT_ENTERED;
+    }
+}
+
+contract MiniTubeSplitter is ReentrancyGuard {
     address public treasury;
+    address public pendingTreasury;
     
     // Fee is 2.5% (represented in basis points: 250 / 10000)
     uint256 public constant FEE_BPS = 250;
     
-    // We assume ETH/DEGEN price or USDC decimals are handled via frontend parameterization 
-    // for the $5 cap calculation to keep the contract gas-efficient and oracle-free.
-    // The frontend must pass the exact fee amount, and the contract verifies it against the cap.
-
     event TipSent(address indexed sender, address indexed creator, address token, uint256 totalAmount, uint256 feeAmount);
+    event TreasuryTransferStarted(address indexed previousTreasury, address indexed newTreasury);
+    event TreasuryTransferCompleted(address indexed previousTreasury, address indexed newTreasury);
 
     constructor(address _treasury) {
+        require(_treasury != address(0), "Invalid treasury address");
         treasury = _treasury;
     }
 
     /**
      * @dev Tip Native Currency (ETH / DEGEN)
      * @param creator The address of the content creator
-     * @param feeAmount The pre-calculated fee amount (must not exceed 2.5% or $5 equivalent cap)
      */
-    function tipNative(address payable creator, uint256 feeAmount) external payable {
+    function tipNative(address payable creator) external payable nonReentrant {
         require(msg.value > 0, "Must send value");
-        require(feeAmount <= (msg.value * FEE_BPS) / 10000, "Fee exceeds 2.5%");
+        require(creator != address(0), "Invalid creator address");
         
+        // Mathematically enforce the 2.5% fee on-chain
+        uint256 feeAmount = (msg.value * FEE_BPS) / 10000;
         uint256 creatorAmount = msg.value - feeAmount;
 
         // Send fee to treasury
@@ -59,16 +76,21 @@ contract MiniTubeSplitter {
      * @param token The ERC20 token address
      * @param creator The address of the content creator
      * @param amount The total amount to tip
-     * @param feeAmount The pre-calculated fee amount
      */
-    function tipERC20(IERC20 token, address creator, uint256 amount, uint256 feeAmount) external {
+    function tipERC20(IERC20 token, address creator, uint256 amount) external nonReentrant {
         require(amount > 0, "Must tip more than 0");
-        require(feeAmount <= (amount * FEE_BPS) / 10000, "Fee exceeds 2.5%");
+        require(creator != address(0), "Invalid creator address");
 
-        uint256 creatorAmount = amount - feeAmount;
-
-        // Transfer total amount from sender to this contract
+        // Measure actual tokens received (protects against fee-on-transfer tokens)
+        uint256 balanceBefore = token.balanceOf(address(this));
         _safeTransferFrom(token, msg.sender, address(this), amount);
+        uint256 actualReceived = token.balanceOf(address(this)) - balanceBefore;
+        
+        require(actualReceived > 0, "No tokens received");
+
+        // Mathematically enforce the 2.5% fee on-chain
+        uint256 feeAmount = (actualReceived * FEE_BPS) / 10000;
+        uint256 creatorAmount = actualReceived - feeAmount;
 
         // Send fee to treasury
         if (feeAmount > 0) {
@@ -76,14 +98,14 @@ contract MiniTubeSplitter {
         }
 
         // Send rest to creator
-        _safeTransfer(token, creator, creatorAmount);
+        if (creatorAmount > 0) {
+            _safeTransfer(token, creator, creatorAmount);
+        }
 
-        emit TipSent(msg.sender, creator, address(token), amount, feeAmount);
+        emit TipSent(msg.sender, creator, address(token), actualReceived, feeAmount);
     }
 
     // --- SafeERC20 Internal Helpers ---
-    // These ensure compatibility with non-standard tokens (like USDT) that don't return a boolean.
-
     function _safeTransfer(IERC20 token, address to, uint256 value) internal {
         (bool success, bytes memory data) = address(token).call(abi.encodeWithSignature("transfer(address,uint256)", to, value));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "SafeERC20: transfer failed");
@@ -94,11 +116,29 @@ contract MiniTubeSplitter {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "SafeERC20: transferFrom failed");
     }
     
+    // --- Two-Step Treasury Ownership ---
+    modifier onlyTreasury() {
+        require(msg.sender == treasury, "Only treasury can call");
+        _;
+    }
+
     /**
-     * @dev Update treasury address
+     * @dev Step 1: Initiate treasury transfer
      */
-    function updateTreasury(address _newTreasury) external {
-        require(msg.sender == treasury, "Only treasury can update");
-        treasury = _newTreasury;
+    function transferTreasury(address _newTreasury) external onlyTreasury {
+        require(_newTreasury != address(0), "Invalid new treasury");
+        pendingTreasury = _newTreasury;
+        emit TreasuryTransferStarted(treasury, _newTreasury);
+    }
+
+    /**
+     * @dev Step 2: Accept treasury transfer
+     */
+    function acceptTreasury() external {
+        require(msg.sender == pendingTreasury, "Only pending treasury can accept");
+        address oldTreasury = treasury;
+        treasury = pendingTreasury;
+        pendingTreasury = address(0);
+        emit TreasuryTransferCompleted(oldTreasury, treasury);
     }
 }
