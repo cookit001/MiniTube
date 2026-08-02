@@ -141,6 +141,8 @@ export default function FarcasterWatchFeed() {
   const [showConnect, setShowConnect] = useState(false);
   const [farcasterConnected, setFarcasterConnected] = useState(false);
   const [failedCasts, setFailedCasts] = useState<Set<string>>(new Set());
+  const [realtimeViews, setRealtimeViews] = useState<Record<string, number>>({});
+
   
   // Track interactions in local state
   const [follows, setFollows] = useState<Set<string>>(new Set());
@@ -169,6 +171,11 @@ export default function FarcasterWatchFeed() {
           // Re-rank feed based on user's interest profile (client-side personalisation)
           const personalised = rerankFeed(data.data);
           setCasts(personalised);
+
+          // Initialize real-time views from server hydration
+          const initialViews: Record<string, number> = {};
+          personalised.forEach((c: any) => initialViews[c.hash] = c.viewCount);
+          setRealtimeViews(initialViews);
         }
         setLoading(false);
       })
@@ -183,6 +190,19 @@ export default function FarcasterWatchFeed() {
           const video = entry.target as HTMLVideoElement;
           if (entry.isIntersecting) {
             video.play().catch(e => console.log('Autoplay prevented:', e));
+
+            // Real-time View Incrementing
+            const hash = video.getAttribute('data-hash');
+            if (hash && !(watchedProgress.current as any)[hash + '_viewed']) {
+               (watchedProgress.current as any)[hash + '_viewed'] = 1;
+               
+               // Secure backend update to Redis (silently in the background)
+               fetch('/api/views', {
+                  method: 'POST', 
+                  body: JSON.stringify({ hash }),
+                  headers: { 'Content-Type': 'application/json' }
+               }).catch(e => console.log('View increment failed', e));
+            }
           } else {
             video.pause();
             video.currentTime = 0; // reset for next scroll
@@ -433,6 +453,7 @@ export default function FarcasterWatchFeed() {
               <video 
                 ref={(el) => { videoRefs.current[index] = el; }}
                 src={cast.videoUrl} 
+                data-hash={cast.hash}
                 loop 
                 playsInline
                 controls={false}
@@ -561,6 +582,16 @@ export default function FarcasterWatchFeed() {
                 </div>
                 <span style={{ color: 'white', fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>Share</span>
               </button>
+
+              {/* Views */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                <div style={{ width: '45px', height: '45px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  👁️
+                </div>
+                <span style={{ color: 'white', fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                  {(realtimeViews[cast.hash] || cast.viewCount || 0) >= 1000 ? ((realtimeViews[cast.hash] || cast.viewCount || 0) / 1000).toFixed(1) + 'K' : (realtimeViews[cast.hash] || cast.viewCount || 0)}
+                </span>
+              </div>
 
               {/* Tip Button - Hidden for now until user growth phase */}
               {/* <button 
