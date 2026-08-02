@@ -108,14 +108,8 @@ Our current strategy is entirely focused on **User Acquisition and Marketing**. 
 
 ### Future Business Model Summary
 
-While the core platform is currently heavily subsidized to drive growth, future monetization avenues include:
+While the core platform is currently heavily subsidized to drive growth, future monetization avenues:
 
-| Section | Model | Revenue Source |
-|---|---|---|
-| **Home Feed** | Always Free | Promoted placements (Creators pay DEGEN to boost algorithmic reach) |
-| **Shorts** | Always Free | Web3 Super Likes & Social Reactions |
-| **Live** | Always Free | Live Super Chats & Web3 NFT ticket gates |
-| **Farcaster Watch** | Always Free | Premium Creator subscriptions |
 
 > **Disclaimer:** MiniTube is a decentralized social discovery interface. We do not host, re-monetize, or serve ads on third-party platform videos (like YouTube). The tipping occurs strictly through peer-to-peer social layers built *around* the content using Farcaster and base-layer crypto primitives.
 
