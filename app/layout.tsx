@@ -36,15 +36,15 @@ export const metadata: Metadata = {
   other: {
     'fc:frame': JSON.stringify({
       version: 'next',
-      imageUrl: 'https://minitube.9realmsstudios.name.ng/image.png',
+      imageUrl: 'https://minitube.9realmsstudios.name.ng/og-image.png',
       button: {
         title: 'Check this out',
         action: {
           type: 'launch_frame',
-          name: 'Example Frame',
+          name: 'MiniTube',
           url: 'https://minitube.9realmsstudios.name.ng',
           splashImageUrl: 'https://minitube.9realmsstudios.name.ng/splash.png',
-          splashBackgroundColor: '#eeccff'
+          splashBackgroundColor: '#000000'
         }
       }
     })
