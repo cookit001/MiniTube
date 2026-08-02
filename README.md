@@ -11,16 +11,14 @@ MiniTube is a short-form video platform built entirely on the Farcaster protocol
 | :--- | :--- |
 | 🎬 Infinite Snap-Scroll Video Feed | ✅ Production |
 | 🧠 AI Interest Engine Curation | ✅ Production |
-| 💎 Smart Contract Native Tipping (0x Splitter) | ✅ Production |
 | 👑 Creator Verification Ticks (🔴 ✦ ✓) | ✅ Production |
 | 💜 Double-Tap to Like (Native fluid animation) | ✅ Production |
-| 💸 Tip Creators (DEGEN / USDC / ETH with 2.5% Protocol Fee) | ✅ Production |
+| 💸 100% Free Peer-to-Peer Tipping (0% Platform Fee) | ✅ Production |
 | 📣 Announce Tips on Farcaster | ✅ Production |
 | 🔗 Native Share via Farcaster SDK | ✅ Production |
 | 👑 Creator Tip Card (@real9realms) | ✅ Production |
 | 📡 Graceful "Video Unavailable" UI | ✅ Production |
 | 🔐 Connect Farcaster (Neynar Auth) | 🟡 UI Ready / Backend Pending |
-| 💰 MiniTubeSplitter Smart Contract (Base) | 📝 Written / Deploy Pending |
 
 ---
 
@@ -101,29 +99,25 @@ MiniTube's curation engine runs in two phases on the backend and one phase on th
 
 ---
 
-## 💰 Monetization: Protocol Fee
+## 💰 Monetization: 0% Platform Fee
 
-Every tip sent through MiniTube routes through the **MiniTubeSplitter** smart contract:
-- **2.5% fee** is taken from the tip amount
-- **Fee is capped at $5 equivalent** regardless of tip size
-- The split happens atomically — the creator and MiniTube treasury receive funds simultaneously
+MiniTube currently operates on a **100% Free, Peer-to-Peer Tipping Model**. 
+We take a 0% protocol fee. When users tip creators in DEGEN, USDC, or ETH, 100% of the funds go directly to the creator's wallet.
 
-The contract is written in `contracts/MiniTubeSplitter.sol` and supports:
-- Native ETH/DEGEN tips
-- ERC-20 (USDC on Base) tips
+Our current strategy is entirely focused on **User Acquisition and Marketing**. By removing all platform friction and fees, we aim to attract the best creators and build a massive, highly engaged Farcaster audience.
 
-### Business Model Summary
+### Future Business Model Summary
 
-MiniTube operates as a Web3 social layer on top of decentralized and existing video infrastructure.
+While the core platform is currently heavily subsidized to drive growth, future monetization avenues include:
 
 | Section | Model | Revenue Source |
 |---|---|---|
 | **Home Feed** | Always Free | Promoted placements (Creators pay DEGEN to boost algorithmic reach) |
-| **Shorts** | Always Free | Web3 Super Likes & Social Reactions (2.5% protocol fee) |
-| **Live** | Always Free | Live Super Chats & Web3 NFT ticket gates (2.5% protocol fee) |
-| **Farcaster Watch** | Always Free | Creator tipping mechanism (2.5% protocol fee) |
+| **Shorts** | Always Free | Web3 Super Likes & Social Reactions |
+| **Live** | Always Free | Live Super Chats & Web3 NFT ticket gates |
+| **Farcaster Watch** | Always Free | Premium Creator subscriptions |
 
-> **Disclaimer:** MiniTube is a decentralized social discovery interface. We do not host, re-monetize, or serve ads on third-party platform videos (like YouTube). The monetization occurs strictly through the peer-to-peer social layer built *around* the content using Farcaster and base-layer crypto primitives.
+> **Disclaimer:** MiniTube is a decentralized social discovery interface. We do not host, re-monetize, or serve ads on third-party platform videos (like YouTube). The tipping occurs strictly through peer-to-peer social layers built *around* the content using Farcaster and base-layer crypto primitives.
 
 ---
 
