@@ -217,8 +217,8 @@ export default function FarcasterWatchFeed() {
           }
           setToast({ message: `Opening Warpcast to follow @${payload.author}...`, type: 'success' });
         } catch (e) {
-          window.open(`https://warpcast.com/${payload.author}`, '_blank');
-          setToast({ message: `Successfully followed @${payload.author}!`, type: 'success' });
+          window.open(`https://farcaster.xyz/real9realms`, '_blank');
+          setToast({ message: `Redirecting to Farcaster...`, type: 'success' });
         }
       }
       setFollows(newFollows);
@@ -562,8 +562,8 @@ export default function FarcasterWatchFeed() {
                 <span style={{ color: 'white', fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>Share</span>
               </button>
 
-              {/* Tip Button */}
-              <button 
+              {/* Tip Button - Hidden for now until user growth phase */}
+              {/* <button 
                 onClick={() => { setTipModal({ author: cast.author, address: cast.address }); trackSignal(cast.hash, cast.text, 'tipped'); }}
                 style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
@@ -574,7 +574,7 @@ export default function FarcasterWatchFeed() {
                   💸
                 </div>
                 <span style={{ color: 'white', fontSize: '12px', fontWeight: 800, textShadow: '0 1px 2px rgba(0,0,0,0.8)', letterSpacing: '0.5px' }}>TIP</span>
-              </button>
+              </button> */}
             </div>
 
             {/* Bottom Info Bar */}
@@ -627,13 +627,13 @@ export default function FarcasterWatchFeed() {
                   >
                     👥 Follow on Farcaster
                   </button>
-                  {/* Optional secondary CTA: Tip — clearly voluntary */}
-                  <button
+                  {/* Optional secondary CTA: Tip — Hidden for now */}
+                  {/* <button
                     onClick={() => setTipModal({ author: 'real9realms', address: '0x0000000000000000000000000000000000000001' })}
                     style={{ padding: '11px', borderRadius: '16px', border: '1px solid rgba(161,92,255,0.3)', background: 'transparent', color: '#a15cff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
                   >
                     💸 Optional: Tip the Creator
-                  </button>
+                  </button> */}
                 </div>
                 <p style={{ margin: 0, fontSize: '11px', color: '#555' }}>Scroll down for more videos ↓</p>
               </div>

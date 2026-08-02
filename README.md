@@ -99,12 +99,12 @@ MiniTube's curation engine runs in two phases on the backend and one phase on th
 
 ---
 
-## 💰 Monetization: 0% Platform Fee
+## 💰 Monetization: 2.5% Platform Fee
 
-MiniTube currently operates on a **100% Free, Peer-to-Peer Tipping Model**. 
-We take a 0% protocol fee. When users tip creators in DEGEN, USDC, or ETH, 100% of the funds go directly to the creator's wallet.
+MiniTube currently operates on a **Peer-to-Peer Tipping Model** with a sustainable fee structure. 
+We take a 2.5% protocol fee. When users tip creators in DEGEN, USDC, or ETH, 97.5% of the funds go directly to the creator's wallet.
 
-Our current strategy is entirely focused on **User Acquisition and Marketing**. By removing all platform friction and fees, we aim to attract the best creators and build a massive, highly engaged Farcaster audience.
+Our current strategy is entirely focused on **User Acquisition and Marketing**. By keeping platform friction and fees low (2.5%), we aim to attract the best creators and build a massive, highly engaged Farcaster audience.
 
 ### Future Business Model Summary
 

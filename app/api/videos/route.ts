@@ -123,6 +123,36 @@ export async function fetchFromNativeExtractor(query: string, geo: string, type:
         publishedAt: new Date().toISOString(),
         source: 'extractor_fallback',
         videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4'
+      },
+      {
+        id: 'sintel',
+        title: 'The Future of SocialFi',
+        description: 'Why Farcaster is winning the decentralized social race.',
+        thumbnail: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg',
+        channelTitle: 'CryptoInsights',
+        publishedAt: new Date().toISOString(),
+        source: 'extractor_fallback',
+        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4'
+      },
+      {
+        id: 'tears',
+        title: 'Ethereum Smart Contracts Explained',
+        description: 'A deep dive into solidity and network fees.',
+        thumbnail: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/TearsOfSteel.jpg',
+        channelTitle: 'VitalikFan',
+        publishedAt: new Date().toISOString(),
+        source: 'extractor_fallback',
+        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4'
+      },
+      {
+        id: 'elephant',
+        title: 'Building MiniTube on Base',
+        description: 'How we leverage L2s for instant tipping.',
+        thumbnail: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+        channelTitle: 'real9realms',
+        publishedAt: new Date().toISOString(),
+        source: 'extractor_fallback',
+        videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
       }
     ];
   }
