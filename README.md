@@ -13,8 +13,8 @@ MiniTube is a short-form video platform built entirely on the Farcaster protocol
 | 🧠 AI Interest Engine Curation | ✅ Production |
 | 👑 Creator Verification Ticks (🔴 ✦ ✓) | ✅ Production |
 | 💜 Double-Tap to Like (Native fluid animation) | ✅ Production |
-| 💸 100% Free Peer-to-Peer Tipping (0% Platform Fee) | ✅ Production |
-| 📣 Announce Tips on Farcaster | ✅ Production |
+| 💸 100% Free Peer-to-Peer Tipping (0% Platform Fee) | pending |
+| 📣 Announce Tips on Farcaster | pending |
 | 🔗 Native Share via Farcaster SDK | ✅ Production |
 | 👑 Creator Tip Card (@real9realms) | ✅ Production |
 | 📡 Graceful "Video Unavailable" UI | ✅ Production |
