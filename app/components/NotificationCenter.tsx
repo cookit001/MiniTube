@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getNotifications, AppNotification, markAllAsRead } from '../utils/notificationEngine';
+import { getNotifications, AppNotification, markAllAsRead, syncLiveNotifications } from '../utils/notificationEngine';
 import sdk from '@farcaster/frame-sdk';
 
 export default function NotificationCenter({ onClose }: { onClose: () => void }) {
@@ -16,6 +16,8 @@ export default function NotificationCenter({ onClose }: { onClose: () => void })
     // Fetch API notifications
     const fetchApiNotifs = async () => {
       try {
+        await syncLiveNotifications(); // Sync global Redis notifications first
+        
         let fid = null;
         try {
           const ctx = await sdk.context;

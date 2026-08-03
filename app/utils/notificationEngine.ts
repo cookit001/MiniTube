@@ -95,3 +95,21 @@ export function checkFeedForFollowedCreators(feedCasts: any[], follows: Set<stri
     }
   });
 }
+
+/**
+ * Syncs with the live global Redis feed.
+ */
+export async function syncLiveNotifications() {
+  if (typeof window === 'undefined') return;
+  try {
+    const res = await fetch('/api/notifications/live');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data && data.data.length > 0) {
+        data.data.forEach((notif: any) => pushNotification(notif));
+      }
+    }
+  } catch (e) {
+    // Silently fail if network is down
+  }
+}
