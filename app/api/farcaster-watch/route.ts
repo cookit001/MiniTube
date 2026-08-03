@@ -12,6 +12,14 @@ import { logAuditEvent } from '@/app/utils/security';
 export const dynamic = 'force-dynamic';
 // In the event of Neynar API failure, we gracefully return an empty array.
 
+// Utility to timeout KV operations so a blocked Redis doesn't hang the API
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('KV Timeout')), ms))
+  ]);
+};
+
 function applyAutonomousCuration(casts: any[]) {
   // Phase 1: Rank and Score
   const scoredCasts = casts.map(cast => {
@@ -63,22 +71,22 @@ function applyAutonomousCuration(casts: any[]) {
   return diverseFeed;
 }
 
-async function fetchFarcasterVideos() {
+async function fetchFarcasterVideos(startCursor: string | null = null) {
   const apiKey = process.env.NEYNAR_API_KEY;
   if (!apiKey || apiKey === 'your_neynar_api_key_here') {
     console.warn('CRITICAL: Missing NEYNAR_API_KEY in production.');
-    return [];
+    return { casts: [], nextCursor: null };
   }
 
   try {
     // Fetch specifically video casts from Farcaster with a high limit, 
     // and fetch multiple pages to ensure a massive raw data pool for our curation engine.
     let allCasts: any[] = [];
-    let cursor = '';
-    const MAX_PAGES = 10; // Balance between huge feed and serverless timeouts
+    let currentCursor = startCursor || '';
+    const MAX_PAGES = startCursor ? 1 : 3; // If paginating, fetch 1 page at a time. Initial load gets 3.
 
     for (let i = 0; i < MAX_PAGES; i++) {
-      const url = `https://api.neynar.com/v2/farcaster/feed?feed_type=filter&filter_type=embed_types&embed_types=video&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+      const url = `https://api.neynar.com/v2/farcaster/feed?feed_type=filter&filter_type=embed_types&embed_types=video&limit=100${currentCursor ? `&cursor=${currentCursor}` : ''}`;
       const res = await fetch(url, {
         headers: {
           'api_key': apiKey,
@@ -96,8 +104,8 @@ async function fetchFarcasterVideos() {
       const pageCasts = data.casts || [];
       allCasts = [...allCasts, ...pageCasts];
 
-      cursor = data.next?.cursor;
-      if (!cursor) break;
+      currentCursor = data.next?.cursor;
+      if (!currentCursor) break;
     }
 
     const casts = allCasts;
@@ -154,31 +162,44 @@ async function fetchFarcasterVideos() {
     // Fallback if no videos are trending right now
     if (videoCasts.length === 0) {
       console.warn('Neynar returned casts, but none contained valid video media');
-      return [];
+      return { casts: [], nextCursor: null };
     }
     
-    return videoCasts;
+    return { casts: videoCasts, nextCursor: currentCursor || null };
 
   } catch (error) {
     console.error('Neynar fetch exception:', error);
-    return []; // Production empty state fallback
+    return { casts: [], nextCursor: null }; // Production empty state fallback
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Check Vercel KV Cache first to save Neynar API hits
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get('cursor');
+    
     let curatedCasts: any[] | null = null;
-    try {
-      if (process.env.minitube_KV_REST_API_URL) {
-        curatedCasts = await kv.get<any[]>('farcaster_watch_feed_v5');
+    let nextCursor: string | null = null;
+
+    // Check Vercel KV Cache first to save Neynar API hits (only if not paginating)
+    if (!cursor) {
+      try {
+        if (process.env.minitube_KV_REST_API_URL) {
+          const cached = await withTimeout(kv.get<any>('farcaster_watch_feed_v5'), 2000);
+          if (cached && cached.data && cached.data.length > 0) {
+            curatedCasts = cached.data;
+            nextCursor = cached.nextCursor;
+          }
+        }
+      } catch (e) {
+        console.warn('Redis KV Cache miss or error:', e);
       }
-    } catch (e) {
-      console.warn('Redis KV Cache miss or error:', e);
     }
 
     if (!curatedCasts || curatedCasts.length === 0) {
-      const farcasterData = await fetchFarcasterVideos();
+      const farcasterResponse = await fetchFarcasterVideos(cursor);
+      const farcasterData = farcasterResponse.casts;
+      nextCursor = farcasterResponse.nextCursor;
       
       // If production fetch utterly fails (e.g. missing API key), seamlessly fallback to YouTube proxy
       if (!farcasterData || farcasterData.length === 0) {
@@ -198,9 +219,9 @@ export async function GET() {
             aiRankScore: 100
           }));
           
-          return NextResponse.json({ success: true, data: mappedFallback });
+          return NextResponse.json({ success: true, data: mappedFallback, nextCursor: null });
         } catch (e) {
-           return NextResponse.json({ success: true, data: [] }, {
+           return NextResponse.json({ success: true, data: [], nextCursor: null }, {
              headers: { 'Cache-Control': 'no-store' }
            });
         }
@@ -230,11 +251,11 @@ export async function GET() {
         }
       }
 
-      // Save to KV with a 15-minute TTL
+      // Save to KV with a 5-minute TTL (only for initial load)
       try {
-        if (process.env.minitube_KV_REST_API_URL) {
-          // Cache feed for 1 hour to prevent API exhaustion while building traffic
-          await kv.set('farcaster_watch_feed_v5', curatedCasts, { ex: 300 });
+        if (process.env.minitube_KV_REST_API_URL && !cursor) {
+          // Cache feed for 5 mins to prevent API exhaustion while building traffic
+          await withTimeout(kv.set('farcaster_watch_feed_v5', { data: curatedCasts, nextCursor }, { ex: 300 }), 2000);
         }
       } catch (e) {
         console.warn('Failed to set Redis KV Cache:', e);
@@ -244,12 +265,12 @@ export async function GET() {
     await logAuditEvent('AI_CURATION_CYCLE', 'system', { status: 'success', topRanked: curatedCasts[0].hash });
     
     // 2. JIT Edge Cache
-    return NextResponse.json({ success: true, data: curatedCasts }, {
+    return NextResponse.json({ success: true, data: curatedCasts, nextCursor }, {
       headers: {
         'Cache-Control': 's-maxage=900, stale-while-revalidate=86400',
       },
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: 'AI Engine Failure' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'AI Engine Failure', nextCursor: null }, { status: 500 });
   }
 }

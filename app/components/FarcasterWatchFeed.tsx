@@ -197,6 +197,8 @@ export default function FarcasterWatchFeed() {
   const [failedCasts, setFailedCasts] = useState<Set<string>>(new Set());
   const [realtimeViews, setRealtimeViews] = useState<Record<string, number>>({});
   const [currentIndex, setCurrentIndex] = useState(0); // Sliding window pivot
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   // Track interactions in local state
   const [follows, setFollows] = useState<Set<string>>(new Set());
@@ -296,6 +298,7 @@ export default function FarcasterWatchFeed() {
         if (data.success && data.data?.length > 0) {
           const personalised = rerankFeed(data.data);
           setCasts(personalised);
+          if (data.nextCursor) setNextCursor(data.nextCursor);
 
           // Check for notifications
           checkFeedForFollowedCreators(personalised, follows);
@@ -309,6 +312,48 @@ export default function FarcasterWatchFeed() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // Infinite Scroll: Trigger pagination when approaching the end of the feed
+  const loadMoreCasts = async () => {
+    if (isLoadingMore || !nextCursor) return;
+    setIsLoadingMore(true);
+    
+    try {
+      const res = await fetch(`/api/farcaster-watch?cursor=${nextCursor}`);
+      const data = await res.json();
+      
+      if (data.success && data.data?.length > 0) {
+        const personalised = rerankFeed(data.data);
+        setCasts(prev => {
+          // Avoid duplicates
+          const existingHashes = new Set(prev.map(c => c.hash));
+          const newCasts = personalised.filter(c => !existingHashes.has(c.hash));
+          
+          if (newCasts.length > 0) {
+            checkFeedForFollowedCreators(newCasts, follows);
+            const newViews: Record<string, number> = {};
+            newCasts.forEach(c => newViews[c.hash] = c.viewCount);
+            setRealtimeViews(prevViews => ({...prevViews, ...newViews}));
+            return [...prev, ...newCasts];
+          }
+          return prev;
+        });
+        setNextCursor(data.nextCursor || null);
+      } else {
+        setNextCursor(null);
+      }
+    } catch (e) {
+      console.error('Failed to load more casts', e);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    if (casts.length > 0 && currentIndex >= casts.length - 3 && nextCursor && !isLoadingMore) {
+      loadMoreCasts();
+    }
+  }, [currentIndex, casts.length, nextCursor, isLoadingMore]);
 
   // Intersection Observer to autoplay videos when they snap into view
   useEffect(() => {
@@ -598,13 +643,15 @@ export default function FarcasterWatchFeed() {
           const isInWindow = Math.abs(index - currentIndex) <= PRELOAD_WINDOW;
 
           // Verified tick badge
-          const VerifiedBadge = () => {
-            if (cast.verifiedTier === 'official') return <span title="Official MiniTube Creator" style={{ fontSize: '12px', background: 'linear-gradient(45deg, #FFD700, #FFA500, #FF8C00)', padding: '2px 8px', borderRadius: '12px', fontWeight: 900, letterSpacing: '0.5px', color: '#000', marginLeft: '6px', boxShadow: '0 0 10px rgba(255, 215, 0, 0.8)', border: '1px solid #FFF' }}>★ OFFICIAL</span>;
-            if (cast.verifiedTier === 'power') return <span title="Farcaster Power User" style={{ color: '#8a63d2', fontSize: '15px', fontWeight: 'bold', marginLeft: '4px', textShadow: '0 0 6px rgba(138, 99, 210, 0.5)' }}>✿</span>;
-            if (cast.verifiedTier === 'whale') return <span title="Whale Account" style={{ color: '#1da1f2', fontSize: '15px', fontWeight: 'bold', marginLeft: '4px' }}>☑</span>;
-            if (cast.verifiedTier === 'verified') return <span title="Verified" style={{ color: '#1da1f2', fontSize: '14px', marginLeft: '4px' }}>✓</span>;
-            return null;
-          };
+          const verifiedBadge = cast.verifiedTier === 'official' ? (
+            <span style={{ fontSize: '10px', background: 'linear-gradient(135deg, #a15cff, #ff2a2a)', color: 'white', padding: '2px 4px', borderRadius: '4px', marginLeft: '6px', fontWeight: 'bold' }}>★ OFFICIAL</span>
+          ) : cast.verifiedTier === 'whale' ? (
+            <span style={{ fontSize: '12px', marginLeft: '4px' }} title="Farcaster Whale (10k+ followers)">🐋</span>
+          ) : cast.verifiedTier === 'power' ? (
+            <span style={{ color: '#a15cff', fontSize: '14px', marginLeft: '4px' }} title="Power Badge">⚡️</span>
+          ) : cast.verifiedTier === 'verified' ? (
+            <span style={{ color: '#0095f6', fontSize: '14px', marginLeft: '4px' }} title="Verified (>1k followers)">✓</span>
+          ) : null;
 
           const cards = [
             <article 
@@ -684,11 +731,11 @@ export default function FarcasterWatchFeed() {
               )}
               
               {/* Right Action Bar */}
-              <nav aria-label="Video actions" style={{ position: 'absolute', bottom: '110px', right: '12px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', zIndex: 10 }}>
+              <nav aria-label="Video actions" style={{ position: 'absolute', bottom: '150px', right: '12px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', zIndex: 10 }}>
                 
                 {/* Profile Avatar with Follow Plus icon */}
                 <div style={{ position: 'relative', marginBottom: '8px' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid white', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid white', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
                     <span style={{color: '#fff', fontWeight: 'bold', fontSize: '1.2rem'}}>{cast.author.charAt(0).toUpperCase()}</span>
                   </div>
                   {!isFollowed && (
@@ -717,7 +764,7 @@ export default function FarcasterWatchFeed() {
                   onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <div style={{ width: '45px', height: '45px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ width: '38px', height: '38px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     {likedCasts.has(cast.hash) ? '❤️' : '♡'}
                   </div>
                   <span style={{ fontSize: '12px', color: likedCasts.has(cast.hash) ? '#ff2a2a' : 'white', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
@@ -734,7 +781,7 @@ export default function FarcasterWatchFeed() {
                   onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <div style={{ width: '45px', height: '45px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ width: '38px', height: '38px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     💬
                   </div>
                   <span style={{ fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{cast.recasts}</span>
@@ -749,7 +796,7 @@ export default function FarcasterWatchFeed() {
                   onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <div style={{ width: '45px', height: '45px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ width: '38px', height: '38px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     🔗
                   </div>
                   <span style={{ color: 'white', fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>Share</span>
@@ -757,7 +804,7 @@ export default function FarcasterWatchFeed() {
 
                 {/* Views */}
                 <div aria-label={`${formatCount(realtimeViews[cast.hash] || cast.viewCount || 0)} views`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                  <div style={{ width: '45px', height: '45px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ width: '38px', height: '38px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     👁️
                   </div>
                   <span style={{ color: 'white', fontSize: '12px', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
@@ -784,7 +831,7 @@ export default function FarcasterWatchFeed() {
               <div style={{ position: 'absolute', bottom: '24px', left: '16px', right: '80px', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>@{cast.author}</h3>
-                  <VerifiedBadge />
+                  {verifiedBadge}
                   {cast.author !== 'real9realms' && !isFollowed && (
                     <span style={{ color: '#aaa', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }} onClick={() => handleAction('follow', { author: cast.author })} role="button" tabIndex={0} aria-label={`Follow @${cast.author}`}>• Follow</span>
                   )}

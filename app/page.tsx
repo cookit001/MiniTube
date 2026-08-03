@@ -1,6 +1,19 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect } from 'react';
+import sdk from '@farcaster/frame-sdk';
 
 export default function LandingPage() {
+  useEffect(() => {
+    // Dismiss Farcaster splash screen if loaded in a frame
+    setTimeout(() => {
+      try {
+        sdk.actions.ready();
+      } catch (e) {}
+    }, 500);
+  }, []);
+
   return (
     <div style={{
       minHeight: '100vh',

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
   title: 'MiniTube | The Decentralized Media Powerhouse',
   description: 'Experience lightning-fast YouTube and uncensorable Farcaster Video feeds in one hyper-optimized platform.',
   keywords: ['MiniTube', 'Farcaster', 'Decentralized Video', 'YouTube Alternative', 'Web3 Media', '9realms Studios'],
