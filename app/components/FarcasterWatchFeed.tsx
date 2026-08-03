@@ -876,13 +876,20 @@ export default function FarcasterWatchFeed() {
                     >
                       👥 Follow on Farcaster
                     </button>
-                    {/* Optional secondary CTA: Tip — Hidden for now */}
-                    {/* <button
-                      onClick={() => setTipModal({ author: 'real9realms', address: '0x0000000000000000000000000000000000000001' })}
+                    {/* Optional secondary CTA: Tip for Creator */}
+                    <button
+                      onClick={() => {
+                        if (!farcasterConnected) {
+                          setToast('Tips are only available inside the Farcaster app!');
+                          return;
+                        }
+                        // Use 0x0...01 as a placeholder for the user's ETH address if they haven't set one yet
+                        setTipModal({ author: 'real9realms', address: '0x0000000000000000000000000000000000000001' });
+                      }}
                       style={{ padding: '11px', borderRadius: '16px', border: '1px solid rgba(161,92,255,0.3)', background: 'transparent', color: '#a15cff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
                     >
                       💸 Optional: Tip the Creator
-                    </button> */}
+                    </button>
                   </div>
                   <p style={{ margin: 0, fontSize: '11px', color: '#555' }}>Scroll down for more videos ↓</p>
                 </div>
