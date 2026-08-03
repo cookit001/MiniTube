@@ -5,6 +5,7 @@ import sdk from '@farcaster/frame-sdk';
 import { parseEther, createPublicClient, http } from 'viem';
 import { base } from 'viem/chains';
 import { trackSignal, rerankFeed } from '@/app/utils/interestEngine';
+import { checkFeedForFollowedCreators, pushNotification } from '@/app/utils/notificationEngine';
 
 // ═══════════════════════════════════════════════════════════════
 // IMPROVEMENT 2: React Error Boundary
@@ -204,6 +205,21 @@ export default function FarcasterWatchFeed() {
   const [heartAnim, setHeartAnim] = useState<string | null>(null);
   const watchedProgress = useRef<Record<string, number>>({});
 
+  // Hydrate follows from local storage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('minitube_follows');
+      if (saved) setFollows(new Set(JSON.parse(saved)));
+    } catch (e) {}
+  }, []);
+
+  // Sync follows to local storage
+  useEffect(() => {
+    if (follows.size > 0) {
+      localStorage.setItem('minitube_follows', JSON.stringify(Array.from(follows)));
+    }
+  }, [follows]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
@@ -234,13 +250,43 @@ export default function FarcasterWatchFeed() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, casts]);
 
+  // Pause video if user minimizes the app or switches tabs
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const video = videoRefs.current[currentIndex];
+      if (document.hidden) {
+        if (video && !video.paused) video.pause();
+      } else {
+        if (video && video.paused) video.play().catch(e => console.log('Resume prevented:', e));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentIndex]);
+
   // Initialize Farcaster Frame SDK for Auto-Auth
   useEffect(() => {
-    try {
-      sdk.actions.ready();
-    } catch (e) {
-      console.log("Not running in a Farcaster Frame context");
-    }
+    const init = async () => {
+      try {
+        // Await the native context from Warpcast. If available, the user is already authenticated!
+        const ctx = await sdk.context;
+        if (ctx?.user?.fid) {
+          setFarcasterConnected(true);
+        }
+      } catch (e) {
+        // Silent fail if not in a frame
+      }
+      
+      // Add a slight delay to ensure the Frame bridge is fully initialized
+      setTimeout(() => {
+        try {
+          sdk.actions.ready();
+        } catch (e) {
+          console.log("Not running in a Farcaster Frame context");
+        }
+      }, 500);
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -250,6 +296,9 @@ export default function FarcasterWatchFeed() {
         if (data.success && data.data?.length > 0) {
           const personalised = rerankFeed(data.data);
           setCasts(personalised);
+
+          // Check for notifications
+          checkFeedForFollowedCreators(personalised, follows);
 
           // Initialize real-time views from server hydration
           const initialViews: Record<string, number> = {};
@@ -318,7 +367,7 @@ export default function FarcasterWatchFeed() {
           } else {
             sdk.actions.openUrl(`https://warpcast.com/${payload.author}`);
           }
-          setToast({ message: `Opening Warpcast to follow @${payload.author}...`, type: 'success' });
+          setToast({ message: `Opening Farcaster to follow @${payload.author}...`, type: 'success' });
         } catch (e) {
           window.open(`https://farcaster.xyz/real9realms`, '_blank');
           setToast({ message: `Redirecting to Farcaster...`, type: 'success' });
@@ -397,6 +446,14 @@ export default function FarcasterWatchFeed() {
       }
 
       setToast({ message: `Transaction broadcasted! 💸 Tipped ${amount} ${currency} to @${author}`, type: 'success' });
+      
+      // Push local notification for tip receipt
+      pushNotification({
+        type: 'tip',
+        actor: author,
+        message: `You successfully tipped ${amount} ${currency} to @${author}`
+      });
+
       if (announce && farcasterConnected) {
         setTimeout(() => setToast({ message: `Cast posted: Just tipped @${author} ${amount} ${currency}!`, type: 'success' }), 2000);
       } else if (announce) {
@@ -542,9 +599,10 @@ export default function FarcasterWatchFeed() {
 
           // Verified tick badge
           const VerifiedBadge = () => {
-            if (cast.verifiedTier === 'creator') return <span title="MiniTube Creator" style={{ fontSize: '13px', background: 'linear-gradient(135deg, #ff2a2a, #a15cff)', padding: '2px 6px', borderRadius: '8px', fontWeight: 800, letterSpacing: '0.5px', color: 'white' }}>🔴 Creator</span>;
-            if (cast.verifiedTier === 'power') return <span title="Neynar Power Badge" style={{ color: '#ffd700', fontSize: '14px', fontWeight: 'bold', textShadow: '0 0 6px rgba(255,215,0,0.8)' }}>✦</span>;
-            if (cast.verifiedTier === 'whale') return <span title="Whale Account" style={{ color: '#a8d8ff', fontSize: '13px', fontWeight: 'bold' }}>✓</span>;
+            if (cast.verifiedTier === 'creator') return <span title="MiniTube Creator" style={{ fontSize: '11px', background: 'linear-gradient(135deg, #ff2a2a, #a15cff)', padding: '2px 6px', borderRadius: '8px', fontWeight: 800, letterSpacing: '0.5px', color: 'white', marginLeft: '4px' }}>🛡️ Creator</span>;
+            if (cast.verifiedTier === 'power') return <span title="Farcaster Power User" style={{ color: '#8a63d2', fontSize: '15px', fontWeight: 'bold', marginLeft: '4px', textShadow: '0 0 6px rgba(138, 99, 210, 0.5)' }}>✿</span>;
+            if (cast.verifiedTier === 'whale') return <span title="Whale Account" style={{ color: '#1da1f2', fontSize: '15px', fontWeight: 'bold', marginLeft: '4px' }}>☑</span>;
+            if (cast.verifiedTier === 'verified') return <span title="Verified" style={{ color: '#1da1f2', fontSize: '14px', marginLeft: '4px' }}>✓</span>;
             return null;
           };
 
@@ -663,7 +721,7 @@ export default function FarcasterWatchFeed() {
                     {likedCasts.has(cast.hash) ? '❤️' : '♡'}
                   </div>
                   <span style={{ fontSize: '12px', color: likedCasts.has(cast.hash) ? '#ff2a2a' : 'white', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
-                    {likedCasts.has(cast.hash) ? cast.likes + 1 : cast.likes}
+                    {likedCasts.has(cast.hash) ? (typeof cast.likes === 'string' && cast.likes.includes('K') ? cast.likes : Number(cast.likes) + 1) : cast.likes}
                   </span>
                 </button>
 

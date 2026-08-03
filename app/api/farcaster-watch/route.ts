@@ -18,13 +18,13 @@ function applyAutonomousCuration(casts: any[]) {
     // Engagement Velocity Score (Base)
     const baseScore = (cast.likes * 1) + (cast.recasts * 3);
     
-    // The "Discovery Boost" Multiplier for new/small accounts
-    // If you have very few followers, your engagement is statistically extremely impressive.
     let discoveryMultiplier = 1;
-    if (cast.followerCount < 1000) {
-      discoveryMultiplier = 500; // Massive boost to help new creators go viral
+    if (cast.author === 'real9realms' || cast.author === 'demike') {
+      discoveryMultiplier = 20; // Permanent creator/partner boost
+    } else if (cast.followerCount < 1000) {
+      discoveryMultiplier = 5; // Moderate boost for small creators (was 500)
     } else if (cast.followerCount < 10000) {
-      discoveryMultiplier = 10;
+      discoveryMultiplier = 2; // Slight boost
     }
 
     const aiRankScore = baseScore * discoveryMultiplier;
@@ -132,9 +132,10 @@ async function fetchFarcasterVideos() {
         // Compute verified tier server-side for determinism
         verifiedTier: (() => {
           const username = c.author?.username || '';
-          if (username === 'real9realms') return 'creator';
+          if (username === 'real9realms' || username === 'demike') return 'creator';
           if (c.author?.power_badge) return 'power';
           if ((c.author?.follower_count || 0) >= 10000) return 'whale';
+          if ((c.author?.follower_count || 0) >= 1000) return 'verified';
           return null;
         })()
       };

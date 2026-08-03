@@ -348,7 +348,7 @@ button:active {
 
 /* MOBILE RESPONSIVENESS */
 @media (max-width: 768px) {
-  .main-layout {
+  .app-container {
     grid-template-columns: 1fr;
     grid-template-rows: 70px 1fr;
   }
@@ -357,12 +357,13 @@ button:active {
     grid-column: 1 / -1;
     grid-row: unset;
     position: fixed;
-    bottom: 0;
+    top: 70px;
+    bottom: auto;
     left: 0;
     width: 100%;
     height: 60px;
     border-right: none;
-    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
     flex-direction: row;
     justify-content: space-around;
     padding: 0;
@@ -378,10 +379,12 @@ button:active {
     gap: 0.2rem;
   }
   
-  .main-content {
+  .content-wrapper {
     grid-column: 1 / -1;
-    padding: 1rem;
-    padding-bottom: 80px; /* Space for bottom nav */
+    padding: 0; /* Remove padding on mobile for edge-to-edge video */
+    margin-top: 130px; /* Space for main-nav + horizontal sidebar */
+    width: 100%;
+    height: calc(100vh - 130px);
   }
 
   .short-info {

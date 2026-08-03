@@ -2,6 +2,7 @@ import '../globals.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import FarcasterGate from '../components/FarcasterGate';
+import NavActions from '../components/NavActions';
 
 export default function AppLayout({
   children,
@@ -10,11 +11,12 @@ export default function AppLayout({
 }) {
   return (
     <div className="app-container">
-      <nav className="glass main-nav">
+      <nav className="glass main-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px' }}>
         <div className="logo">
           <span className="logo-dot"></span>
           MiniTube
         </div>
+        <NavActions />
       </nav>
       
       <aside className="sidebar">
