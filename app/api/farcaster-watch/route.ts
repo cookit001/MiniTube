@@ -19,10 +19,12 @@ function applyAutonomousCuration(casts: any[]) {
     const baseScore = (cast.likes * 1) + (cast.recasts * 3);
     
     let discoveryMultiplier = 1;
-    if (cast.author === 'real9realms' || cast.author === 'demike') {
-      discoveryMultiplier = 20; // Permanent creator/partner boost
+    if (cast.author === 'real9realms') {
+      discoveryMultiplier = 20; // Permanent creator boost (Unnegotiable)
+    } else if (cast.powerBadge || cast.followerCount >= 10000) {
+      discoveryMultiplier = 15; // Massive boost for big creators / power users
     } else if (cast.followerCount < 1000) {
-      discoveryMultiplier = 5; // Moderate boost for small creators (was 500)
+      discoveryMultiplier = 5; // Moderate boost for small creators
     } else if (cast.followerCount < 10000) {
       discoveryMultiplier = 2; // Slight boost
     }
@@ -132,7 +134,7 @@ async function fetchFarcasterVideos() {
         // Compute verified tier server-side for determinism
         verifiedTier: (() => {
           const username = c.author?.username || '';
-          if (username === 'real9realms' || username === 'demike') return 'creator';
+          if (username === 'real9realms') return 'official';
           if (c.author?.power_badge) return 'power';
           if ((c.author?.follower_count || 0) >= 10000) return 'whale';
           if ((c.author?.follower_count || 0) >= 1000) return 'verified';

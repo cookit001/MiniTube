@@ -599,7 +599,7 @@ export default function FarcasterWatchFeed() {
 
           // Verified tick badge
           const VerifiedBadge = () => {
-            if (cast.verifiedTier === 'creator') return <span title="MiniTube Creator" style={{ fontSize: '11px', background: 'linear-gradient(135deg, #ff2a2a, #a15cff)', padding: '2px 6px', borderRadius: '8px', fontWeight: 800, letterSpacing: '0.5px', color: 'white', marginLeft: '4px' }}>🛡️ Creator</span>;
+            if (cast.verifiedTier === 'official') return <span title="Official MiniTube Creator" style={{ fontSize: '12px', background: 'linear-gradient(45deg, #FFD700, #FFA500, #FF8C00)', padding: '2px 8px', borderRadius: '12px', fontWeight: 900, letterSpacing: '0.5px', color: '#000', marginLeft: '6px', boxShadow: '0 0 10px rgba(255, 215, 0, 0.8)', border: '1px solid #FFF' }}>★ OFFICIAL</span>;
             if (cast.verifiedTier === 'power') return <span title="Farcaster Power User" style={{ color: '#8a63d2', fontSize: '15px', fontWeight: 'bold', marginLeft: '4px', textShadow: '0 0 6px rgba(138, 99, 210, 0.5)' }}>✿</span>;
             if (cast.verifiedTier === 'whale') return <span title="Whale Account" style={{ color: '#1da1f2', fontSize: '15px', fontWeight: 'bold', marginLeft: '4px' }}>☑</span>;
             if (cast.verifiedTier === 'verified') return <span title="Verified" style={{ color: '#1da1f2', fontSize: '14px', marginLeft: '4px' }}>✓</span>;
