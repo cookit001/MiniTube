@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-const kv = Redis.fromEnv();
+
+// Explicitly use the custom minitube_KV variables
+const kv = new Redis({
+  url: process.env.minitube_KV_REST_API_URL || '',
+  token: process.env.minitube_KV_REST_API_TOKEN || '',
+});
 import { fetchFromNativeExtractor } from '../videos/route';
 import { logAuditEvent } from '@/app/utils/security';
 
@@ -162,7 +167,7 @@ export async function GET() {
     // Check Vercel KV Cache first to save Neynar API hits
     let curatedCasts: any[] | null = null;
     try {
-      if (process.env.KV_REST_API_URL) {
+      if (process.env.minitube_KV_REST_API_URL) {
         curatedCasts = await kv.get<any[]>('farcaster_watch_feed_v5');
       }
     } catch (e) {
@@ -202,7 +207,7 @@ export async function GET() {
       curatedCasts = applyAutonomousCuration(farcasterData);
 
       // Hydrate with Real-Time Views from Redis
-      if (process.env.KV_REST_API_URL && curatedCasts.length > 0) {
+      if (process.env.minitube_KV_REST_API_URL && curatedCasts.length > 0) {
         try {
           const keys = curatedCasts.map(c => `video_views:${c.hash}`);
           const realViews = await kv.mget(...keys);
@@ -224,7 +229,7 @@ export async function GET() {
 
       // Save to KV with a 15-minute TTL
       try {
-        if (process.env.KV_REST_API_URL) {
+        if (process.env.minitube_KV_REST_API_URL) {
           // Cache feed for 1 hour to prevent API exhaustion while building traffic
           await kv.set('farcaster_watch_feed_v5', curatedCasts, { ex: 300 });
         }
