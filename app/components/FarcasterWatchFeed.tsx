@@ -199,6 +199,7 @@ export default function FarcasterWatchFeed() {
   const [currentIndex, setCurrentIndex] = useState(0); // Sliding window pivot
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Default to muted for autoplay policies
   
   // Track interactions in local state
   const [follows, setFollows] = useState<Set<string>>(new Set());
@@ -676,7 +677,7 @@ export default function FarcasterWatchFeed() {
                   data-index={index}
                   loop 
                   playsInline
-                  muted
+                  muted={isMuted}
                   controls={false}
                   aria-label={`Video: ${cast.text?.slice(0, 80) || 'Farcaster video content'}`}
                   onClick={(e) => {
@@ -732,6 +733,20 @@ export default function FarcasterWatchFeed() {
               
               {/* Right Action Bar */}
               <nav aria-label="Video actions" style={{ position: 'absolute', bottom: '150px', right: '12px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', zIndex: 10 }}>
+                
+                {/* Mute Toggle */}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                  aria-label={isMuted ? "Unmute video" : "Mute video"}
+                  style={{ background: 'transparent', border: 'none', padding: 0, color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', transition: 'transform 0.2s', marginBottom: '8px' }}
+                  onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+                  onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <div style={{ width: '42px', height: '42px', background: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                    {isMuted ? '🔇' : '🔊'}
+                  </div>
+                </button>
                 
                 {/* Profile Avatar with Follow Plus icon */}
                 <div style={{ position: 'relative', marginBottom: '8px' }}>

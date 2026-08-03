@@ -407,25 +407,27 @@ button:active {
 @media (max-width: 768px) {
   .app-container {
     grid-template-columns: 1fr;
-    grid-template-rows: 70px 1fr;
+    grid-template-rows: 70px 1fr; /* Keep header */
   }
   
   .sidebar {
     grid-column: 1 / -1;
     grid-row: unset;
     position: fixed;
-    top: 70px;
-    bottom: auto;
+    top: auto; /* Remove top positioning */
+    bottom: 0; /* Snap to bottom */
     left: 0;
     width: 100%;
-    height: 60px;
+    height: 65px; /* Slightly taller for easy tapping */
     border-right: none;
-    border-bottom: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border);
     flex-direction: row;
     justify-content: space-around;
+    align-items: center;
     padding: 0;
     z-index: 200;
     background: rgba(10, 10, 10, 0.95);
+    padding-bottom: env(safe-area-inset-bottom); /* iPhone safe area */
   }
   
   .sidebar-link {
@@ -438,13 +440,36 @@ button:active {
   
   .content-wrapper {
     grid-column: 1 / -1;
-    padding: 0; /* Remove padding on mobile for edge-to-edge video */
-    margin-top: 130px; /* Space for main-nav + horizontal sidebar */
+    padding: 0; 
+    margin-top: 0; /* Remove massive top margin */
     width: 100%;
-    height: calc(100vh - 130px);
+    height: 100dvh; /* Let shorts container span full height */
+    padding-bottom: 65px; /* Prevent content from hiding behind tab bar */
+  }
+
+  .search-form {
+    flex-direction: column;
+    padding: 0 1rem;
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .search-form button {
+    width: 100%;
+  }
+
+  /* Make top navigation translucent so it overlays nicely */
+  .main-nav {
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%) !important;
+    border-bottom: none !important;
+    backdrop-filter: none !important;
+    height: 70px;
   }
 
   .short-info {
-    bottom: 80px;
+    bottom: 90px; /* Push info up above the tab bar */
   }
 }
