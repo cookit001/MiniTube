@@ -71,6 +71,61 @@ body {
   gap: 0.5rem;
 }
 
+/* ════════════════════════════════════════════════════════
+   AUTO-LAYOUT & RESPONSIVE VIDEO GRIDS
+   ════════════════════════════════════════════════════════ */
+.video-grid {
+  display: grid;
+  /* Auto-fit creates columns that adapt perfectly to the screen size. 
+     On mobile, it will be 1 column. On desktop, as many as fit. */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.video-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.video-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(161, 92, 255, 0.2);
+}
+
+.thumbnail-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9; /* Perfect YouTube ratio */
+  background-color: #0a0a0a;
+}
+
+.video-info {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.video-info h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.video-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .logo-dot {
   width: 10px;
   height: 10px;

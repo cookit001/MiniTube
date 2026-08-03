@@ -858,7 +858,7 @@ export default function FarcasterWatchFeed() {
           ];
 
           // Creator Card
-          if (index === 0 && !follows.has('real9realms')) {
+          if (index === 0) {
             cards.push(
               <article key="creator-card" role="article" aria-label="Support MiniTube creator @real9realms" style={{ height: '100%', width: '100%', scrollSnapAlign: 'start', position: 'relative', backgroundColor: '#000', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ background: 'linear-gradient(135deg, rgba(20,20,20,0.98), rgba(10,0,20,0.98))', border: '1px solid rgba(161,92,255,0.4)', borderRadius: '24px', padding: '32px 24px', textAlign: 'center', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 0 60px rgba(161,92,255,0.2)' }}>
