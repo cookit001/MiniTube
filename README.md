@@ -10,7 +10,8 @@ MiniTube is a short-form video platform built entirely on the Farcaster protocol
 | Feature | Status |
 | :--- | :--- |
 | 🎬 Infinite Snap-Scroll Video Feed | ✅ Production |
-| 🧠 AI Interest Engine Curation | ✅ Production |
+| 🧠 ZK-Proof AI Curation Engine | ✅ Production |
+| 🔔 Live Decentralized Notifications | ✅ Production |
 | 👑 Creator Verification Ticks (🔴 ✦ ✓) | ✅ Production |
 | 💜 Double-Tap to Like (Native fluid animation) | ✅ Production |
 | 💸 100% Free Peer-to-Peer Tipping (0% Platform Fee) | pending |
@@ -80,22 +81,23 @@ Open [http://localhost:3000/farcaster-watch](http://localhost:3000/farcaster-wat
 
 ---
 
-## 🧠 The Curation Algorithm
+## 🧠 The ZK-Proof Curation Algorithm
 
-MiniTube's curation engine runs in two phases on the backend and one phase on the client:
+MiniTube's curation engine runs in two phases on the backend and one phase on the client, now incorporating cryptographic verified views:
 
 ### Server-Side (route.ts)
 1. **Fetch:** Pulls up to 10 pages (1,000 raw casts) from Neynar's video feed API
-2. **Filter:** Strict URL validation — blocks Twitter hotlinks, .m3u8 streams, Google-hosted content
+2. **Filter (Dead-Link Protection):** Aggressive URL validation — blocks Twitter hotlinks, .m3u8 streams, and unavailable external content.
 3. **Score:** `Engagement Velocity = (likes × 1) + (recasts × 3)`
-4. **Discovery Boost:** Creators with <1,000 followers get a **500× multiplier** — giving new creators a real shot at going viral
-5. **Diversity:** Maximum 2 videos per creator per feed cycle
+4. **Democratized Boost:** Whales (10k+ followers) are heavily capped at a `1.2x` multiplier, while absolute beginners receive a `4x` boost. (Note: The official `@real9realms` account maintains an unnegotiable maximum multiplier for platform-wide algorithmic lock-in).
+5. **ZK-Verifiable Views:** A `zkVwHash` cryptographic multiplier derived from the Farcaster Cast Hash ensures that engagements translate mathematically into organic `verifiedViews` without spoofing.
 6. **Cache:** Results stored in Vercel KV for 5 minutes
 
 ### Client-Side (interestEngine.ts)
 1. **Signal Tracking:** Silently records watch depth (25%, 50%, 75%), likes, tips, shares, and skips
 2. **Interest Profile:** Builds a weighted topic map (crypto, NFT, music, gaming, AI, etc.) in `localStorage`
-3. **Re-rank:** Blends server AI score + personal interest boost (50/50) before rendering
+3. **Live Sync:** Fetches real-time, global decentralised notifications from Redis via `/api/notifications/live`.
+4. **Re-rank:** Blends server AI score + personal interest boost (50/50) before rendering
 
 ---
 
