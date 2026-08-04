@@ -469,29 +469,59 @@ export default function FarcasterWatchFeed() {
     setToast({ message: `Requesting secure wallet signature...`, type: 'info' });
     
     try {
-      const SPLITTER_CONTRACT = '0x0000000000000000000000000000MiniTubeSplitter';
-      let txParams: any = { to: SPLITTER_CONTRACT };
+      // Direct ETH/token transfer to the creator's verified on-chain address
+      // No intermediary contract — transparent, auditable, trustless
+      let txParams: any = {};
 
-      if (currency === 'USDC') {
-        txParams.data = '0x_simulated_tipERC20_call_to_splitter_with_creator_' + address.replace('0x', '');
-        txParams.value = '0x0';
+      if (currency === 'ETH') {
+        // Native ETH transfer directly to creator
+        txParams = {
+          to: address,
+          value: `0x${parseEther(amount).toString(16)}`,
+        };
+      } else if (currency === 'USDC') {
+        // ERC-20 transfer (USDC on Base: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
+        const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+        const amountInUnits = BigInt(Math.floor(Number(amount) * 1e6)); // USDC has 6 decimals
+        // ERC-20 transfer(address,uint256) selector = 0xa9059cbb
+        const paddedAddress = address.replace('0x', '').padStart(64, '0');
+        const paddedAmount = amountInUnits.toString(16).padStart(64, '0');
+        txParams = {
+          to: USDC_BASE,
+          value: '0x0',
+          data: `0xa9059cbb${paddedAddress}${paddedAmount}`,
+        };
       } else {
-        txParams.data = '0x_simulated_tipNative_call_to_splitter_with_creator_' + address.replace('0x', '');
-        txParams.value = `0x${parseEther(amount).toString(16)}`;
+        // DEGEN token on Base: 0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed
+        const DEGEN_BASE = '0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed';
+        const amountInUnits = parseEther(amount); // DEGEN has 18 decimals
+        const paddedAddress = address.replace('0x', '').padStart(64, '0');
+        const paddedAmount = amountInUnits.toString(16).padStart(64, '0');
+        txParams = {
+          to: DEGEN_BASE,
+          value: '0x0',
+          data: `0xa9059cbb${paddedAddress}${paddedAmount}`,
+        };
       }
       
-      let hash = "simulated_hash_123";
+      let hash = '';
       try {
         const result = await (sdk.actions as any).sendTransaction({ tx: txParams });
-        hash = result?.hash || hash;
+        hash = result?.hash || '';
       } catch (sdkError: any) {
-        console.log("Frame sendTransaction failed or unsupported here:", sdkError);
+        console.log('Frame sendTransaction failed:', sdkError);
         if (sdkError.message && sdkError.message.includes('rejected')) {
           throw new Error('User rejected the transaction');
         }
+        // If not in a frame, show a helpful message
+        throw new Error('Tips require the Farcaster mobile app. Open MiniTube inside Warpcast to tip!');
       }
 
-      setToast({ message: `Transaction broadcasted! 💸 Tipped ${amount} ${currency} to @${author}`, type: 'success' });
+      if (hash) {
+        setToast({ message: `✅ Tipped ${amount} ${currency} to @${author}!`, type: 'success' });
+      } else {
+        setToast({ message: `Transaction sent! Confirming on Base...`, type: 'success' });
+      }
       
       // Push local notification for tip receipt
       pushNotification({
@@ -546,7 +576,7 @@ export default function FarcasterWatchFeed() {
           aria-label="Video feed"
           tabIndex={0}
           style={{ 
-            height: '100%', 
+            height: '100dvh',
             width: '100%',
             overflowY: 'scroll', 
             scrollSnapType: 'y mandatory',
@@ -699,6 +729,12 @@ export default function FarcasterWatchFeed() {
                   onError={() => {
                     setFailedCasts(prev => new Set(prev).add(cast.hash));
                     trackSignal(cast.hash, cast.text, 'skipped');
+                    // Auto-skip to next video after 1.5s so users don't stare at dead content
+                    setTimeout(() => {
+                      if (index < casts.length - 1) {
+                        scrollToNext(index);
+                      }
+                    }, 1500);
                   }}
                 />
               )}
@@ -827,19 +863,22 @@ export default function FarcasterWatchFeed() {
                   </span>
                 </div>
 
-                {/* Tip Button - Hidden for now until user growth phase */}
-                {/* <button 
-                  onClick={() => { setTipModal({ author: cast.author, address: cast.address }); trackSignal(cast.hash, cast.text, 'tipped'); }}
-                  style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
-                  onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  <div style={{ width: '45px', height: '45px', background: 'rgba(161,92,255,0.8)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', boxShadow: '0 2px 10px rgba(161,92,255,0.5)', border: '2px solid white' }}>
-                    💸
-                  </div>
-                  <span style={{ color: 'white', fontSize: '12px', fontWeight: 800, textShadow: '0 1px 2px rgba(0,0,0,0.8)', letterSpacing: '0.5px' }}>TIP</span>
-                </button> */}
+                {/* Tip Button — Only visible for @real9realms (creator-only tipping) */}
+                {cast.author === 'real9realms' && (
+                  <button 
+                    onClick={() => { setTipModal({ author: cast.author, address: cast.address }); trackSignal(cast.hash, cast.text, 'tipped'); }}
+                    aria-label={`Tip @${cast.author}`}
+                    style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+                    onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                  >
+                    <div style={{ width: '45px', height: '45px', background: 'rgba(161,92,255,0.8)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', boxShadow: '0 2px 10px rgba(161,92,255,0.5)', border: '2px solid white' }}>
+                      💸
+                    </div>
+                    <span style={{ color: 'white', fontSize: '12px', fontWeight: 800, textShadow: '0 1px 2px rgba(0,0,0,0.8)', letterSpacing: '0.5px' }}>TIP</span>
+                  </button>
+                )}
               </nav>
 
               {/* Bottom Info Bar */}

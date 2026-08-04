@@ -72,6 +72,20 @@ function applyAutonomousCuration(casts: any[]) {
   return diverseFeed;
 }
 
+// Pre-validate a video URL with a fast HEAD request (2s timeout)
+// Returns true if the URL is likely playable, false if dead/expired
+async function isVideoUrlAlive(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(url, { method: 'HEAD', signal: controller.signal, redirect: 'follow' });
+    clearTimeout(timeout);
+    return res.ok; // 200-299 means alive
+  } catch {
+    return false; // Timeout, network error, or abort = dead
+  }
+}
+
 async function fetchFarcasterVideos(startCursor: string | null = null) {
   const apiKey = process.env.NEYNAR_API_KEY;
   if (!apiKey || apiKey === 'your_neynar_api_key_here') {
@@ -93,7 +107,8 @@ async function fetchFarcasterVideos(startCursor: string | null = null) {
           'api_key': apiKey,
           'accept': 'application/json'
         },
-        next: { revalidate: 60 } // Next.js aggressive cache at the edge
+        // No revalidate — always fetch fresh to avoid expired signed URLs
+        cache: 'no-store'
       });
       
       if (!res.ok) {
@@ -111,20 +126,34 @@ async function fetchFarcasterVideos(startCursor: string | null = null) {
 
     const casts = allCasts;
     
-    // Extract video URL directly from metadata since we know it's a video feed
+    // Extract video URL from embeds — expanded matching for decentralized hosts
     const videoCasts = casts.map((c: any) => {
       let videoUrl = null;
       if (c.embeds) {
         for (const embed of c.embeds) {
-          // If Neynar explicitly resolved this as a video, use the URL
+          // Priority 1: Neynar explicitly resolved this as a video
           if (embed.metadata?.content_type?.startsWith('video/')) {
             videoUrl = embed.url;
             break;
           }
-          // Fallback string matching for unresolved streams
-          if (embed.url && (embed.url.includes('.mp4') || embed.url.includes('stream'))) {
-            videoUrl = embed.url;
-            break;
+          // Priority 2: Known video hosting patterns (Livepeer, Pinata, IPFS, Cloudflare)
+          if (embed.url) {
+            const u = embed.url.toLowerCase();
+            if (
+              u.includes('.mp4') || 
+              u.includes('stream') ||
+              u.includes('livepeer') ||
+              u.includes('lvpr.tv') ||
+              u.includes('pinata') ||
+              u.includes('ipfs') ||
+              u.includes('cloudflare') ||
+              u.includes('warpcast.com/~/video') ||
+              u.includes('video.') ||
+              u.includes('.webm')
+            ) {
+              videoUrl = embed.url;
+              break;
+            }
           }
         }
       }
@@ -159,6 +188,22 @@ async function fetchFarcasterVideos(startCursor: string | null = null) {
       }
       return true;
     }); // Strip any where extraction failed or host is blocked
+
+    // Server-side dead-link validation: HEAD-check the top 20 video URLs in parallel
+    // This eliminates expired signed URLs BEFORE they reach the client
+    if (videoCasts.length > 0) {
+      const checkBatch = videoCasts.slice(0, 20);
+      const aliveResults = await Promise.all(checkBatch.map(c => isVideoUrlAlive(c.videoUrl)));
+      const deadHashes = new Set<string>();
+      for (let i = 0; i < checkBatch.length; i++) {
+        if (!aliveResults[i]) deadHashes.add(checkBatch[i].hash);
+      }
+      // Remove dead videos and keep any unchecked ones (beyond top 20)
+      const aliveCasts = videoCasts.filter(c => !deadHashes.has(c.hash));
+      if (aliveCasts.length > 0) {
+        return { casts: aliveCasts, nextCursor: currentCursor || null };
+      }
+    }
 
     // Fallback if no videos are trending right now
     if (videoCasts.length === 0) {
@@ -256,7 +301,7 @@ export async function GET(request: Request) {
       try {
         if (process.env.minitube_KV_REST_API_URL && !cursor) {
           // Cache feed for 5 mins to prevent API exhaustion while building traffic
-          await withTimeout(kv.set('farcaster_watch_feed_v5', { data: curatedCasts, nextCursor }, { ex: 300 }), 2000);
+          await withTimeout(kv.set('farcaster_watch_feed_v5', { data: curatedCasts, nextCursor }, { ex: 60 }), 2000);
         }
       } catch (e) {
         console.warn('Failed to set Redis KV Cache:', e);
@@ -268,7 +313,7 @@ export async function GET(request: Request) {
     // 2. JIT Edge Cache
     return NextResponse.json({ success: true, data: curatedCasts, nextCursor }, {
       headers: {
-        'Cache-Control': 's-maxage=900, stale-while-revalidate=86400',
+        'Cache-Control': 's-maxage=120, stale-while-revalidate=300',
       },
     });
   } catch (error: any) {
